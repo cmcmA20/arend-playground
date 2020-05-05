@@ -1,0 +1,200 @@
+\open Nat
+
+\data Bool | false | true
+
+\func mycoe (A : I -> \Type) (a : A left) (i : I) : A i
+  => coe A a i
+
+
+\func Leibniz {A : \Type} {a a' : A}
+              (f : \Pi (P : A -> \Type) -> \Sigma (P a -> P a') (P a' -> P a)) : a = a'
+  => \let | q => \lam x => a = x
+          | r => f q
+     \in r.1 idp
+
+-- \func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+\func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+  => \let q => \lam i => B (p @ i)
+      \in coe q b right
+
+-- symmetry
+\func inv {A : \Type} {a a' : A} (p : a = a') : a' = a
+  => transport (\lam x => x = a) p idp
+
+-- transitivity
+\func trans {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a''
+  => transport (\lam x => a = x) q p
+
+-- congruence
+\func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+  => transport (\lam x => f a = f x) p idp
+
+\func pmap2 {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b'
+  => \let | r => transport (\lam x => f a  b = f x  b) p idp
+          | w => transport (\lam y => f a' b = f a' y) q idp
+      \in trans r w
+
+-- Define 'repl' via 'transport'.
+\func repl {A B : \Type} (p : A = B) (a : A) : B
+  => \let q => transport (\lam x => x) p a
+      \in q
+
+-- Define 'transport' via 'repl' and 'pmap'.
+\func transport' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+  => repl (pmap B p) b
+
+\func myidp {A : \Type} {a : A} : a = a => path (\lam _ => a)
+
+\func left=right : left = right => path (\lam i => i)
+
+\func pmap' {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+  => path (\lam i => f (p @ i))
+
+\func pmap-idp {A : \Type} {a a' : A} (p : a = a') : pmap' {A} (\lam x => x) p = p
+  => idp
+
+\func pairEq {A B : \Type} {a a' : A} {b b' : B} (p : a = a') (q : b = b') : (a,b) = (a',b')
+  => path (\lam i => (p @ i, q @ i))
+
+\func projEq {A : \Type} (B : A -> \Type) {p p' : \Sigma (x : A) (B x)} (t : p = p') : p.1 = p'.1
+  => path (\lam i => (t @ i).1)
+
+
+\func funExt {A : \Type} (B : A -> \Type) {f g : \Pi (a : A) -> B a}
+             (p : \Pi (a : A) -> f a = g a) : f = g
+  => path (\lam i => \lam a => p a @ i)
+
+\data \fixr 2 Either (A B : \Type)
+  | inl A
+  | inr B
+
+\data Empty
+
+-- \func lem : \Pi (X : \Type) -> Either X (X -> Empty) => {?}
+-- \func ugly_num : Nat => \case lem Nat \with { | Left => 0 | Right => 1 }
+
+\func not (b : Bool) : Bool
+  | true => false
+  | false => true
+
+\func notNot (b : Bool) : not (not b) = b
+  | false => idp
+  | true  => idp
+
+\func notNotId : (\lam x => not (not x)) = (\lam x => x)
+  => path (\lam i a => notNot a @ i)
+--  => funExt (\lam _ => Bool) (\lam a => notNot a)
+
+
+-- Non-dependent eliminator for Nat (recursion).
+\func Nat-rec (P : \Type)
+              (z : P)
+              (s : Nat -> P -> P)
+              (x : Nat) : P \elim x
+  | zero  => z
+  | suc n => s n (Nat-rec P z s n)
+
+\func fac (n : Nat) : Nat
+  => Nat-rec Nat 1 (\lam a b => (suc a) * b) n
+
+-- Dependent eliminator for Nat (induction).
+\func Nat-elim (P : Nat -> \Type)
+               (z : P zero)
+               (s : \Pi (n : Nat) -> P n -> P (suc n))
+               (x : Nat) : P x \elim x
+  | zero  => z
+  | suc n => s n (Nat-elim P z s n)
+
+\func +-assoc (a b c : Nat) : (a + b) + c = a + (b + c)
+  => Nat-elim ( \lam x => (a + b) + x = a + (b + x) ) idp (\lam n p => pmap suc p) c
+
+\func Bool-rec (P : \Type)
+               (t : P)
+               (f : P)
+               (x : Bool) : P \elim x
+  | true  => t
+  | false => f
+
+-- Dependent eliminator for Bool (recursor for Bool is just 'if').
+\func Bool-elim (P : Bool -> \Type)
+                (t : P true)
+                (f : P false)
+                (x : Bool) : P x \elim x
+  | true  => t
+  | false => f
+
+\data D
+  | con1 Nat
+  | con2 D D
+  | con3 (Nat -> D)
+
+\func D-rec
+  (P : \Type)
+  (c1 : Nat -> P)
+  (c2 : D -> D -> P -> P -> P)
+  (c3 : (Nat -> D) -> (Nat -> P) -> P)
+  (x : D) : P \elim x
+  | con1 n   => c1 n
+  | con2 u v => c2 u v (D-rec P c1 c2 c3 u) (D-rec P c1 c2 c3 v)
+  | con3 f   => c3 f (\lam n => D-rec P c1 c2 c3 (f n))
+
+\func D-elim
+  (P : D -> \Type)
+  (c1 : \Pi (n : Nat) -> P (con1 n))
+  (c2 : \Pi (u v : D) -> P u -> P v -> P (con2 u v))
+  (c3 : \Pi (f : Nat -> D) -> (\Pi (n : Nat) -> P (f n)) -> P (con3 f))
+  (x : D) : P x \elim x
+  | con1 n   => c1 n
+  | con2 u v => c2 u v (D-elim P c1 c2 c3 u) (D-elim P c1 c2 c3 v)
+  | con3 f   => c3 f (\lam n => D-elim P c1 c2 c3 (f n))
+
+\data List (A : \Type) | nil | cons A (List A)
+
+\func List-elim
+  {A : \Type}
+  (P : List A -> \Type)
+  (enil : P nil)
+  (econs : \Pi (x : A) (xs : List A) -> P xs -> P (cons x xs))
+  (xs : List A) : P xs \elim xs
+  | nil       => enil
+  | cons x xs => econs x xs (List-elim P enil econs xs)
+
+\func coe0 (A : I -> \Type) (a : A left) : A right
+  => transport A left=right a
+
+\func transport'' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+  => \let r => \lam i => B (p @ i)
+      \in coe0 r b
+
+\func Itr' {B : I -> \Type} (b : B right) : B left
+  => \let r => \lam i => (inv (path B)) @ i
+      \in coe0 r b
+
+\data Unit | unit
+
+\func T (b : Bool) : \Type
+  | true => Unit
+  | false => Empty
+
+\func true/=false (p : true = false) : Empty
+  => transport T p unit
+
+\func Z (n : Nat) : \Type
+  | zero  => Unit
+  | suc _ => Empty
+
+\func zero/=suc {x : Nat} (p : 0 = suc x) : Empty
+  => transport Z p unit
+
+\func absurd {A : \Type} (e : Empty) : A
+
+\func pred (x : Nat) : Nat
+  | 0     => 0
+  | suc x => x
+
+\func suc-inj {x y : Nat} (p : suc x = suc y) : x = y
+  => pmap pred p
+
+\func fac/=suc (p : fac = suc) : Empty
+  => \let r => suc-inj (pmap (\lam f => f 1) p)
+      \in absurd (zero/=suc r)

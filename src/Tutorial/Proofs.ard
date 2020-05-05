@@ -1,0 +1,183 @@
+\import Paths
+\open Nat
+
+\data Empty
+
+\data Unit | unit
+
+\func unit-isTrue : Unit => unit
+
+\data Bool | false | true
+
+-- | A -> A
+\func id {A : \Type} : A -> A
+  => \lam a => a
+
+\func id' {A : \Type} (a : A) : A
+  => a
+
+-- | A -> B -> A
+\func const {A B : \Type} : A -> B -> A
+  => \lam a _ => a
+
+\func const' {A B : \Type} (a : A) (b : B) : A
+  => a
+
+-- | (B -> C) -> (A -> B) -> A -> C
+\func comp {A B C : \Type} : (B -> C) -> (A -> B) -> A -> C
+  => \lam f g a => f (g a)
+
+\func comp' {A B C : \Type} (f : B -> C) (g : A -> B) (a : A) : C
+  => f (g a)
+
+-- | (A -> B -> C) -> (A -> B) -> A -> C
+\func ex1 {A B C : \Type} : (A -> B -> C) -> (A -> B) -> A -> C
+  => \lam f g a => f a (g a)
+
+\func ex1' {A B C : \Type} (f : A -> B -> C) (g : A -> B) (a : A) : C
+  => f a (g a)
+
+-- | ((A -> B -> C) -> A) -> (A -> C) -> C
+\func ex2 {A B C : \Type} : ((A -> B -> C) -> A) -> (A -> C) -> C
+  => \lam f g => g (f (\lam a _ => g a))
+
+\func ex2' {A B C : \Type} (f : (A -> B -> C) -> A) (g : A -> C) : C
+  => g (f (\lam a _ => g a))
+
+
+\func \infixr 3 && (P Q : \Type) : \Type
+  => \Sigma P Q
+
+-- | A -> B -> (A && B)
+\func &&-intro {A B : \Type} (a : A) (b : B) : \Sigma A B
+  => (a, b)
+
+-- | (A && B) -> A
+\func &&-elim1 {A B : \Type} (t : \Sigma A B) : A => t.1
+
+-- | (A && B) -> B
+\func &&-elim2 {A B : \Type} (t : \Sigma A B) : B => t.2
+
+-- | ((A && B) -> C) -> A -> B -> C
+\func ex3 {A B C : \Type} (f : (\Sigma A B) -> C) (a : A) (b : B) : C
+  => f (a, b)
+
+-- | (A -> B -> C) -> (A && B) -> C
+\func ex4 {A B C : \Type} (f : (A -> B -> C)) (t : \Sigma A B) : C \elim t
+  | (a, b) => f a b
+
+\func ex4' {A B C : \Type} (f : (A -> B -> C)) (t : \Sigma A B) : C
+  => f t.1 t.2
+
+\data \infixr 2 || (A B : \Type)
+  | inl A
+  | inr B
+
+-- | A -> (A || B)
+\func ||-intro1 {A B : \Type} (a : A) : A || B
+  => inl a
+
+-- | B -> (A || B)
+\func ||-intro2 {A B : \Type} (b : B) : A || B
+  => inr b
+
+-- | (A -> C) -> (B -> C) -> (A || B) -> C
+\func ||-elim {A B C : \Type} (l : A -> C) (r : B -> C) (u : A || B) : C \elim u
+  | inl a => l a
+  | inr b => r b
+
+-- | (A -> C) -> (B -> C) -> A || B -> C
+\func ex5 {A B C : \Type} (l : A -> C) (r : B -> C) (u : A || B) : C
+  => ||-elim l r u
+
+-- | ((A || B) -> (A && B)) -> ((A -> B) && (B -> A))
+\func ex6 {A B : \Type} (f : (A || B) -> (A && B)) : ((A -> B) && (B -> A))
+  => (\lam a => (f (inl a)).2, \lam b => (f (inr b)).1)
+
+
+\func Not (A : \Type) : \Type => A -> Empty
+
+\func ex7 {A : \Type} (f : A -> Not A) (g : Not A -> A) : Empty
+  => \let x => \lam a => f a a
+      \in x (g x)
+
+-- | forall x. P(x) -> exists x. P(x)
+\func ex8 {P : Nat -> \Type} (h : \Pi (x : Nat) -> P x) : \Sigma (x : Nat) (P x)
+  => (zero, h zero)
+
+-- | Not (exists x. P(x)) -> Not P(3)
+\func ex9 {P : Nat -> \Type} (h : Not (\Sigma (x : Nat) (P x))) : Not (P 3)
+  => \lam t => h (3, t)
+
+-- | (forall x. P(x) -> Q(x)) -> (exists x. P(x) -> exists x. Q(x))
+\func ex10 {P Q : Nat -> \Type}
+           (v : \Pi (x : Nat) -> (P x -> Q x)) (h : \Sigma (x : Nat) (P x)) : \Sigma (x : Nat) (Q x) \elim h
+  | (x, f) => (x, v x f)
+
+-- | (forall x. Not P(x) || Not Q(x)) -> P(3) -> Not Q(3)
+\func ex11 {P Q : Nat -> \Type} (v : \Pi (x : Nat) -> Not (P x) || Not (Q x)) (p : P 3) : Not (Q 3)
+  => \lam q => ||-elim (\lam s => s p) (\lam s => s q) (v 3)
+
+\func T (b : Bool) : \Type
+  | true  => Unit
+  | false => Empty
+
+\func \infix 4 == (x y : Bool) : Bool
+  | true, true => true
+  | false, false => true
+  | _ , _ => false
+
+\func not-isInvolution (x : Bool) : T (not (not x) == x)
+  | true => unit -- if x is true, then T (not (not true) == true) evaluates to Unit
+  | false => unit -- if x is false, then T (not (not false) == false) again evaluates to Unit
+
+-- proof of reflexivity of == is analogous
+\func ==-refl (x : Bool) : T (x == x)
+  | true => unit
+  | false => unit
+
+\func \infixl 6 and (a b : Bool) : Bool \elim a, b
+  | true, true => true
+  | _ , false => false
+  | false, _ => false
+
+\func \infixl 4 or (a b : Bool) : Bool \elim a, b
+  | true, _ => true
+  | _, true => true
+  | false, false => false
+
+\func ex12-and-assoc (x y z : Bool) : (x and y) and z = x and (y and z)
+  | false, false, false => idp
+  | false, false, true => idp
+  | false, true, false => idp
+  | false, true, true => idp
+  | true, false, false => idp
+  | true, false, true => idp
+  | true, true, false => idp
+  | true, true, true => idp
+
+\func ex12-or-assoc (x y z : Bool) : (x or y) or z = x or (y or z)
+  | false, false, false => idp
+  | false, false, true => idp
+  | false, true, false => idp
+  | false, true, true => idp
+  | true, false, false => idp
+  | true, false, true => idp
+  | true, true, false => idp
+  | true, true, true => idp
+
+\func ex13 : 2 * 2 = 4 => idp
+
+\data List (A : \Type) | nil | cons A (List A)
+
+\func \infixl 6 ++ {A : \Type} (xs ys : List A) : List A \elim xs
+  | nil       => ys
+  | cons x xs => cons x (xs ++ ys)
+
+\func nil-unit-right {A : \Type} (xs : List A) : xs ++ nil = xs
+  | nil       => idp
+  | cons x xs => pmap (cons x) (nil-unit-right xs)
+
+\func ex14-++-assoc {A : \Type} (xs ys zs : List A) : (xs ++ ys) ++ zs = xs ++ (ys ++ zs) \elim xs
+  | nil       => idp
+  | cons x xs => pmap (cons x) (ex14-++-assoc xs ys zs)

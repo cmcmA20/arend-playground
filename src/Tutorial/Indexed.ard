@@ -1,0 +1,198 @@
+\open Nat
+
+\data Bool | false | true
+
+\func \infix 3 < (m n : Nat) : Bool
+  | 0    , 0     => false
+  | 0    , _     => true
+  | suc m, 0     => false
+  | suc m, suc n => m < n
+
+\data List (A : \Type) | nil | cons A (List A)
+
+\func if {A : \Type} (b : Bool) (t e : A) : A \elim b
+  | true  => t
+  | false => e
+
+\func flip {A B C : \Type} (f : A -> B -> C) : B -> A -> C
+  => \lam b a => f a b
+
+\func sort {A : \Type} (less : A -> A -> Bool) (xs : List A) : List A \elim xs
+  | nil => nil
+  | cons x xs => insert less x (sort less xs)
+  \where
+    \func insert {A : \Type} (less : A -> A -> Bool) (x : A) (xs : List A) : List A \elim xs
+      | nil => cons x nil
+      | cons x' xs => if (less x x') (cons x (cons x' xs)) (cons x' (insert less x xs))
+
+\data Empty
+
+\data Unit | unit
+
+\func T (b : Bool) : \Type
+  | true => Unit
+  | false => Empty
+
+\func \infixl 6 && (a b : Bool) : Bool \elim a, b
+  | true, true => true
+  | true, false => false
+  | false, _ => false
+
+\func reverse {A : \Type} (xs : List A) : List A => rev nil xs
+  \where
+    \func rev {A : \Type} (acc xs : List A) : List A \elim xs
+      | nil => acc
+      | cons x xs => rev (cons x acc) xs
+
+\func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs => rev-isInv nil xs
+  \where
+    \func rev-isInv {A : \Type} (acc xs : List A) : reverse (reverse.rev acc xs) = reverse.rev xs acc \elim xs
+      | nil => idp
+      | cons x xs => rev-isInv (cons x acc) xs
+
+\func length {A : \Type} (xs : List A) : Nat
+  | nil => 0
+  | cons _ xs => suc (length xs)
+
+\func lookup {A : \Type} (xs : List A) (n : Nat) (p : T (n < length xs)) : A
+  | nil, 0, ()
+  | cons x xs, 0    , unit => x
+  | cons _ xs, suc n, p    => lookup xs n p
+
+\func vec (A : \Type) (n : Nat) : \Type \elim n
+  | 0 => \Sigma
+  | suc n => \Sigma A (vec A n)
+
+\func head {A : \Type} (n : Nat) (xs : vec A (suc n)) => xs.1
+
+\func tail {A : \Type} (n : Nat) (xs : vec A (suc n)) => xs.2
+
+\data Vec (A : \Type) (n : Nat) \elim n
+  | 0 => vnil
+  | suc n => vcons A (Vec A n)
+
+\func Head {A : \Type} {n : Nat} (xs : Vec A (suc n)) : A \elim xs
+  | vcons x _ => x
+
+\func Tail {A : \Type} {n : Nat} (xs : Vec A (suc n)) : Vec A n \elim xs
+  | vcons _ xs => xs
+
+\data Maybe (A : \Type) | nothing | just A
+
+\func first {A : \Type} {n : Nat} (xs : Vec A n) : Maybe A \elim n, xs
+  | 0, vnil => nothing
+  | suc n, vcons x xs => just x
+
+\func append {A : \Type} {n m : Nat} (xs : Vec A n) (ys : Vec A m) : Vec A (m + n) \elim n, xs
+  | 0    , vnil => ys
+  | suc n, vcons x xs => vcons x (append xs ys)
+
+\func replicate {A : \Type} (n : Nat) (x : A) : vec A n \elim n
+  | 0 => ()
+  | suc n => (x, replicate n x)
+
+\func Replicate {A : \Type} (n : Nat) (x : A) : Vec A n \elim n
+  | 0 => vnil
+  | suc n => vcons x (Replicate n x)
+
+\func map {A B : \Type} (f : A -> B) {n : Nat} (as : vec A n) : vec B n \elim n
+  | 0 => ()
+  | suc n => (f (head n as), map f (tail n as))
+
+\func Map {A B : \Type} (f : A -> B) {n : Nat} (as : Vec A n) : Vec B n \elim n
+  | 0 => vnil
+  | suc n => vcons (f (Head as)) (Map f (Tail as))
+
+\func zipWith {A B C : \Type} (f : A -> B -> C) {n : Nat} (as : vec A n) (bs : vec B n) : vec C n \elim n
+  | 0     => ()
+  | suc n => (f (head n as) (head n bs), zipWith f (tail n as) (tail n bs))
+
+\func ZipWith {A B C : \Type} (f : A -> B -> C) {n : Nat} (as : Vec A n) (bs : Vec B n) : Vec C n \elim n
+  | 0     => vnil
+  | suc _ => vcons (f (Head as) (Head bs)) (ZipWith f (Tail as) (Tail bs))
+
+\func Foldr {A B : \Type} {n : Nat} (f : A -> B -> B) (z : B) (as : Vec A n) : B \elim n, as
+  | 0    , vnil       => z
+  | suc _, vcons a as => f a (Foldr f z as)
+
+\data Fin (n : Nat) \with
+  | suc n => {
+    | fzero
+    | fsuc (fn : Fin n)
+  }
+
+\func \infix 6 == {n : Nat} (x y : Fin n) : Bool
+  | {suc _}, fzero , fzero  => true
+  | {suc _}, fzero , fsuc _ => false
+  | {suc _}, fsuc _, fzero  => false
+  | {suc _}, fsuc x, fsuc y => x == y
+
+\func finWeaken {n : Nat} (a : Fin n) : Fin (suc n)
+  | {suc _}, fzero  => fzero
+  | {suc _}, fsuc a => fsuc (finWeaken a)
+
+\func finMax {n : Nat} (x y : Fin n) : Fin n
+  | {suc _}, fzero  , fzero   => fzero
+  | {suc _}, fzero  , fsuc fy => fsuc fy
+  | {suc _}, fsuc fx, fzero   => fsuc fx
+  | {suc _}, fsuc fx, fsuc fy => fsuc (finMax fx fy)
+
+\func funToVec {A : \Type} {n : Nat} (f : Fin n -> A) : Vec A n \elim n
+  | 0 => vnil
+  | suc n => vcons (f fzero) (funToVec (\lam x => f (finWeaken x)))
+
+\data Mat (A : \Type) (n m : Nat) \elim n, m
+  | 0    , 0     => mnil
+  | suc _, 0     => cnil
+  | 0    , suc _ => rnil
+  | suc n, suc m => mfun (fnm : Fin (suc n) -> Fin (suc m) -> A)
+
+\func empty {A : \Type} (z : A) (n m : Nat) : Mat A n m \elim n, m
+  | 0    , 0     => mnil
+  | 0    , suc _ => rnil
+  | suc _, 0     => cnil
+  | suc _, suc _ => mfun (\lam _ _ => z)
+
+\func diag {A : \Type} (z e : A) (n : Nat) : Mat A n n \elim n
+  | 0     => mnil
+  | suc _ => mfun (\lam j i => if (i == j) e z)
+
+\func transpose {A : \Type} {n m : Nat} (M : Mat A n m) : Mat A m n \elim n, m, M
+  | 0    , 0    , mnil    => mnil
+  | 0    , suc _, rnil    => cnil
+  | suc _, 0    , cnil    => rnil
+  | suc n, suc m, mfun fm => mfun (flip fm)
+
+\func matAdd {A : \Type} (add : A -> A -> A) (n m : Nat) (X Y : Mat A n m) : Mat A n m \elim n, m, X, Y
+  | 0    , 0    , mnil   , mnil    => mnil
+  | 0    , suc _, rnil   , rnil    => rnil
+  | suc _, 0    , cnil   , cnil    => cnil
+  | suc _, suc _, mfun fx, mfun fy => mfun (\lam j i => add (fx j i) (fy j i))
+
+\func matMul {A : \Type} (z : A) (add mul : A -> A -> A)
+             (n m k : Nat) (X : Mat A n m) (Y : Mat A k n) : Mat A k m \elim n, m, k, X, Y
+  | 0    , 0    , 0    , mnil   , mnil    => mnil
+  | 0    , 0    , suc _, mnil   , cnil    => cnil
+  | 0    , suc _, 0    , rnil   , mnil    => rnil
+  | 0    , suc m, suc k, rnil   , cnil    => empty z (suc k) (suc m)
+  | suc _, 0    , 0    , cnil   , rnil    => mnil
+  | suc _, 0    , suc _, cnil   , mfun _  => cnil
+  | suc _, suc _, 0    , mfun _ , rnil    => rnil
+  | suc n, suc m, suc k, mfun fx, mfun fy =>
+    mfun (\lam j i => Foldr add z (ZipWith mul (funToVec ((flip fx) i)) (funToVec (fy j))))
+
+\data CTree (A : \Type) (n : Nat) \elim n
+  | 0     => ctleaf
+  | suc n => ctnode (a : A) (l : CTree A n) (r : CTree A n)
+
+\data Tree (A : \Type) (n : Nat) \elim n
+  | 0     => tleaf
+  | suc n => {
+    | small (t : Tree A n)
+    | big (a : A) (l r : Tree A n)
+  }
+
+\func height {A : \Type} {n : Nat} (t : Tree A n) : Fin (suc n) \elim n, t
+  | 0    , tleaf     => fzero
+  | suc n, small t   => finWeaken (height t)
+  | suc n, big a l r => fsuc (finMax (height l) (height r))
