@@ -1,0 +1,147 @@
+\open Nat
+
+\data Bool | true | false
+
+-- | Logical opperators
+\func \infixl 5 not (a : Bool) : Bool \elim a
+  | true  => false
+  | false => true
+
+\func \infixl 4 or (a b : Bool) : Bool
+  | false, false => false
+  | false, true  => true
+  | true, false  => true
+  | true, true   => true
+
+\func \infixl 4 and (a b : Bool) : Bool
+  | false, false => false
+  | false, true  => false
+  | true, false  => false
+  | true, true   => false
+
+
+-- | Compare opearators
+\func \infixl 4 >= (a b : Nat) : Bool
+  | 0, 0         => true
+  | 0, suc b     => false
+  | suc a, 0     => true
+  | suc a, suc b => a >= b
+
+\func \infixl 4 <= (a b : Nat) : Bool \elim a, b
+  | 0, 0         => true
+  | 0, suc b     => true
+  | suc a, 0     => false
+  | suc a, suc b => a <= b
+
+\func \infixl 4 == (a b : Nat) : Bool
+  | 0, 0         => true
+  | 0, suc b     => false
+  | suc a, 0     => false
+  | suc a, suc b => a == b
+
+\func \infix 4 /= (a b : Nat) : Bool => not (a == b)
+
+\func \infixl 4 < (a b : Nat) : Bool
+  | 0, 0         => false
+  | 0, suc b     => true
+  | suc a, 0     => false
+  | suc a, suc b => a < b
+
+\func \infixl 4 > (a b : Nat) : Bool
+  | 0, 0         => false
+  | 0, suc b     => false
+  | suc a, 0     => true
+  | suc a, suc b => a > b
+
+
+-- | 'If' implementation
+\func if {A : \Type} (b : Bool) (t f : A) : A \elim b
+  | true  => t
+  | false => f
+
+
+-- | fake '-' operator
+\func \infixl 7 minus (a b : Nat) : Nat
+  | 0, 0         => 0
+  | 0, suc b     => 0
+  | suc a, 0     => suc a
+  | suc a, suc b => minus a b
+
+
+-- | 'Mod' implementation
+\func mod'' (k a b : Nat) : Nat \elim k
+  | 0 => 0
+  | suc k =>
+    if (a < b)
+       a
+       (mod'' k (a minus b) b)
+
+\func \infixl 9 mod' (a b : Nat) : Nat
+  => mod'' a a b
+
+
+-- | Greater common divisor implementation
+\func gcd' (k a b : Nat) : Nat \elim k
+  | 0     => 0
+  | suc k =>
+    if (b == 0)
+    (a)
+    (gcd' k b (a mod' b))
+
+\func gcd (a b : Nat) : Nat => gcd' a a b
+
+
+-- | List implementation
+\data List (A : \Type) | nil | cons A (List A)
+
+\func \infixr 8 :| { X : \Type } (x : X) (xs : List X) : List X => cons x xs
+
+\func \infixl 6 ++ {A : \Type} (xs ys : List A) : List A \elim xs
+  | nil       => ys
+  | cons x xs => cons x (xs ++ ys)
+
+
+-- | 'Map' implementation
+\func map { X Y : \Type } (f : X -> Y) (xs : List X) : List Y \elim  xs
+  | nil       => nil
+  | cons x xs => cons (f x) (map f xs)
+
+\func zipWith {A B C : \Type}
+              (f : A -> B -> C)
+              (as : List A)
+              (bs : List B) : List C \elim as, bs
+  | nil, nil => nil
+  | _, nil   => nil
+  | nil, _   => nil
+  | cons a as, cons b bs
+  => cons (f a b) (zipWith f as bs)
+
+\func transpose {X : \Type} (xxs : List (List X)) : List (List X)
+  | nil         => nil
+  | cons xs xxs => zipWith (:|) xs (transpose xxs)
+
+\func transpose' (xxs : List (List Nat)) : List (List Nat)
+  | nil         => {?}
+  | cons xs xxs => zipWith (:|) xs (transpose' xxs)
+
+\func row1   => 1 :| 2 :| 3 :| nil
+\func row2   => 4 :| 5 :| 6 :| nil
+\func matrix => row1 :| row2 :| nil
+
+\func test   => transpose matrix
+
+
+\func ift (b : Bool) (X Y : \Type) : \Type \elim b
+  | true  => X
+  | false => Y
+
+\func whatever (b : Bool) (z : ift b Nat Bool) : Nat
+  | true, 0 => 0
+  | true, suc n => suc n
+  | false, true => 1
+  | false, false => 2
+
+\func whatever' : \Pi (b : Bool) ->  ift b Nat Bool -> Nat
+  => whatever
+
+
