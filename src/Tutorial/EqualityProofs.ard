@@ -1,9 +1,6 @@
 \open I
 \open Nat
 \import Tutorial.Equality
-\import Equiv.Univalence
-\import Equiv
-\open Map (f)
 
 \func \infixr 5 *> {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a''
   => transport (\lam x => a = x) q p
@@ -72,6 +69,7 @@
                {a a' : A} (p : a = a') : B a a' p
   => J (B a) p (b a)
 
+-- FIXME use Jalt, this is garbage
 \func transportAlt {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
   => \let | W => coe0 (\lam i => B (p @ i)) (Jalt (\lam x y q => B a) (\lam x => b) p)
       \in W
@@ -148,7 +146,8 @@
   | suc m => <=-step (LessOrEq'' n m)
   | m => <=-refl (n = m)
 
-\func pcomp {A : \Type} {a b c d : A} (p : a = b) (q : a = c) (r : b = d) : c = d
-  => coe0 (\lam i => q @ i = r @ i) p
+-- \func hcomp {A : \Type} {a b c d : A} (p : a = b) (q : a = c) (r : b = d) : c = d
+--   => coe0 (\lam i => q @ i = r @ i) p
+--   => repl (path (\lam i => q @ i = r @ i)) p
 --   => \let w => path (\lam i => q @ i = r @ i)
 --       \in f {=-to-Equiv w} p
