@@ -146,7 +146,12 @@
   | suc m => <=-step (LessOrEq'' n m)
   | m => <=-refl (n = m)
 
--- \func hcomp {A : \Type} {a b c d : A} (p : a = b) (q : a = c) (r : b = d) : c = d
+\func hfill1 {A : \Type} {a b c d : A} (p : a = b) (q : a = c) (r : b = d)
+  : \Pi (i : I) -> q @ i = r @ i
+  => coe2 (\lam i => q @ i = r @ i) left p
+
+\func hcomp1 {A : \Type} {a b c d : A} (p : a = b) (q : a = c) (r : b = d) : c = d
+  => hfill1 p q r right
 --   => coe0 (\lam i => q @ i = r @ i) p
 --   => repl (path (\lam i => q @ i = r @ i)) p
 --   => \let w => path (\lam i => q @ i = r @ i)
