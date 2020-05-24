@@ -1,6 +1,217 @@
 
-\import Data.Bool
+\import Paths
+
+\open Nat
+
+\data Empty
+
+-- | 0 |- A
+\func absurd {A : \Type} (e : Empty) : A
+
+\data Unit
+  | unit
+
+\func unit-isTrue : Unit
+  => unit
+
+\data Bool
+  | false
+  | true
+
+-- | A |- A
+\func id {A : \Type} : A -> A
+  => \lam a => a
+
+\func id' {A : \Type} (a : A) : A
+  => a
+
+-- | A |- B -> A
+\func const {A B : \Type} : A -> B -> A
+  => \lam a _ => a
+
+\func const' {A B : \Type} (a : A) (b : B) : A
+  => a
+
+-- | B -> C, A -> B |- A -> C
+\func comp {A B C : \Type} : (B -> C) -> (A -> B) -> (A -> C)
+  => \lam f g a => f (g a)
+
+\func comp' {A B C : \Type} (f : B -> C) (g : A -> B) (a : A) : C
+  => f (g a)
+
+-- | A -> B -> C, A -> B |- A -> C
+\func ex1 {A B C : \Type} : (A -> B -> C) -> (A -> B) -> A -> C
+  => \lam f g a => f a (g a)
+
+\func ex1' {A B C : \Type} (f : A -> B -> C) (g : A -> B) (a : A) : C
+  => f a (g a)
+
+-- | (A -> B -> C) -> A |- (A -> C) -> C
+\func ex2 {A B C : \Type} : ((A -> B -> C) -> A) -> (A -> C) -> C
+  => \lam f g => g (f (\lam a b => g a))
+
+\func \infixr 3 && (P Q : \Type) : \Type
+  => \Sigma P Q
+
+-- | A, B |- A && B
+\func &&-intro {A B : \Type} (a : A) (b : B) : \Sigma A B
+  => (a, b)
+
+\data \infixr 2 &&' (A B : \Type)
+  | pr (x : \Sigma A B)
+
+\data \infixr 2 &&'' (A B : \Type)
+  | pr' (a : A) (b : B)
+
+-- | A && B |- A
+\func &&-elim1 {A B : \Type} (t : \Sigma A B) : A
+  => t.1
+
+-- | A && B |- B
+\func &&-elim2 {A B : \Type} (t : \Sigma A B) : B
+  => t.2
+
+-- | (A && B) -> C |- A -> B -> C
+\func ex3 {A B C : \Type} (f : (\Sigma A B) -> C) (a : A) (b : B) : C
+  => f (a,b)
+
+-- | A -> B -> C |- (A && B) -> C
+\func ex4 {A B C : \Type} (f : A -> B -> C) (t : \Sigma A B) : C
+  => f (t.1) (t.2)
+
+\data \infixr 2 || (A B : \Type)
+  | inl (a : A)
+  | inr (b : B)
+
+-- | A |- A || B
+\func ||-intro1 {A B : \Type} (a : A) : A || B
+  => inl a
+
+-- | B |- A || B
+\func ||-intro2 {A B : \Type} (b : B) : A || B
+  => inr b
+
+-- | A -> C, B -> C, A || B |- C
+\func ||-elim {A B C : \Type} (l : A -> C) (r : B -> C) (u : A || B) : C \elim u
+  | inl a => l a
+  | inr b => r b
+
+-- | A -> C, B -> C, A || B |- C
+\func ex5 {A B C : \Type} (l : A -> C) (r : B -> C) (u : A || B) : C \elim u
+  | inl a => l a
+  | inr b => r b
+
+-- | (A || B) -> (A && B) |- (A -> B) && (B -> A)
+\func ex6 {A B : \Type} (f : A || B -> A && B) : (A -> B) && (B -> A)
+  => (\lam a => (f (inl a)).2, \lam b => (f (inr b)).1)
+
+\func Not (A : \Type) : \Type
+  => A -> Empty
+
+\func dich' {A : \Type} (a : A) (na : A -> Empty) : Empty
+  => na a
+
+\func ex7 {A : \Type} (f : A -> (A -> Empty)) (g : (A -> Empty) -> A) : Empty
+  => (f (g (\lam q => f q q))) (g (\lam q => f q q))
+
+-- | ∀x.P(x) -> ∃x.P(x)
+\func ex8 {P : Nat -> \Type} (h : \Pi (x : Nat) -> P x) : \Sigma (x : Nat) (P x)
+  => (1, h 1)
+
+-- | ¬∃x.P(x) -> ¬P(3)
+\func ex9 {P : Nat -> \Type} (h : Not (\Sigma (x : Nat) (P x))) : Not (P 3)
+  => \lam v => h (3, v)
 
 
+-- Мы остановились тут...
+-- | (∀x.P(x) -> Q(x)) -> (∃x.P(x) -> ∃x.Q(x))
+\func ex10 {P Q : Nat -> \Type}
+           (h : \Pi (x : Nat) -> P x -> Q x)
+           : (\Sigma (x : Nat) (P x)) -> (\Sigma (x : Nat) (Q x))
+  => \lam a => (a.1, h a.1 (a.2))
 
+-- Я хз правильно ли сформулировал задачу.
+-- | (∀x.¬P(x) || ¬Q(x)) -> (P(3) -> ¬Q(3))
+\func ex11 {P Q : Nat -> \Type}
+           (h : \Pi (x : Nat) -> Not (P x) || Not (Q x))
+           : (P 3) -> Not (Q 3)
+  => \lam a => \lam b => (||-elim (\lam z => z) (\lam v => \lam n => v b) (h 3)) a
 
+\func T (b : Bool) : \Type
+  | true  => Unit
+  | false => Empty
+
+\func \infix 4 == (x y : Bool) : Bool
+  | true, true   => true
+  | false, false => true
+  | _, _         => false
+
+\func not (b : Bool) : Bool
+  | true  => false
+  | false => true
+
+-- Шо за фигня. Шо ему не нравится.
+\func not-isInvolution (x : Bool) : T (not (not x) == x) \elim x
+  | false => {?}
+  | true => {?}
+
+-- Аналогично.
+\func ==-refl (x : Bool) : T (x == x)
+  | true  => unit
+  | false => unit
+
+\func easy : 1 = 1 => idp
+
+\func medium : 3 * 8 = 6 * 4 => idp
+
+\func boolshit : false = false => idp
+
+\func \infixl 6 and (a b : Bool) : Bool \elim a, b
+  | true, true => true
+  | _ , false => false
+  | false, _ => false
+
+\func \infixl 4 or (a b : Bool) : Bool \elim a, b
+  | true, _ => true
+  | _, true => true
+  | false, false => false
+
+\func ex12-and-assoc (x y z : Bool) : (x and y) and z = x and (y and z) \elim x, y, z
+  | false, false, false => idp
+  | false, false, true  => idp
+  | false, true, false  => idp
+  | false, true, true   => idp
+  | true, false, false  => idp
+  | true, false, true   => idp
+  | true, true, false   => idp
+  | true, true, true    => idp
+
+\func ex12-or-assoc (x y z : Bool) : (x or y) or z = x or (y or z) \elim x, y, z
+  | false, false, false => idp
+  | false, false, true  => idp
+  | false, true, false  => idp
+  | false, true, true   => idp
+  | true, false, false  => idp
+  | true, false, true   => idp
+  | true, true, false   => idp
+  | true, true, true    => idp
+
+\func ex13-mult-equal4 : 2 * 2 = 4 => idp
+
+\data List (A : \Type)
+  | nil
+  | cons (x : A) (xs : List A)
+
+\func \infixl 6 ++ {A : \Type} (xs ys : List A) : List A \elim xs
+  | nil       => ys
+  | cons x xs => cons x (xs ++ ys)
+
+\func myPmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+  => pmap f p
+
+\func ex14-++-assoc {A : \Type} (xs ys zs : List A) : (xs ++ ys) ++ zs = xs ++ (ys ++ zs) \elim xs, ys
+  | nil, nil => idp
+  | nil, cons x xs => idp
+  -- ...
+  | cons x xs, nil => {?}
+  | cons x xs, cons x1 xs1 => {?}
