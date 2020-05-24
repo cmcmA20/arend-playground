@@ -127,6 +127,10 @@
   | false, false => true
   | _ , _ => false
 
+\func not (x : Bool) : Bool
+  | false => true
+  | true  => false
+
 \func not-isInvolution (x : Bool) : T (not (not x) == x)
   | true => unit -- if x is true, then T (not (not true) == true) evaluates to Unit
   | false => unit -- if x is false, then T (not (not false) == false) again evaluates to Unit
