@@ -1,6 +1,4 @@
 
-\import Paths
-
 \open Nat
 
 \data Empty
@@ -206,8 +204,11 @@
   | nil       => ys
   | cons x xs => cons x (xs ++ ys)
 
-\func myPmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
-  => pmap f p
+\func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+  => transport (\lam x => f a = f x) p idp
+  \where
+    \func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+      => coe (\lam i => B (p @ i)) b right
 
 \func ex14-++-assoc {A : \Type} (xs ys zs : List A) : (xs ++ ys) ++ zs = xs ++ (ys ++ zs) \elim xs, ys
   | nil, nil => idp
