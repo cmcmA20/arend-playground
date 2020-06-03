@@ -1,0 +1,76 @@
+\import Prelude \hiding (Nat)
+
+\func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+  => coe (\lam i => B (p @ i)) b right
+
+\func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+  => transport (\lam x => f a = f x) p idp
+
+-- reflexivity
+\func refl {A : \Type} {a : A} : a = a
+  => idp
+
+-- symmetry
+\func inv {A : \Type} {a a' : A} (p : a = a') : a' = a \elim p
+  | idp => idp
+
+-- transitivity
+\func trans {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a''
+  => transport (\lam x => a = x) q p
+
+\data Nat
+  | zero
+  | suc (n : Nat)
+  
+\func \infixl 6 + (x y : Nat) : Nat \elim y
+  | zero  => x           -- x + 0 := x
+  | suc y => suc (x + y) -- x + (1 + y) := 1 + (x + y)
+
+\func zero-neutral-right (x : Nat) : x + zero = x
+  => idp
+
+\func zero-neutral-left (x : Nat) : zero + x = x
+  | zero  => idp
+  | suc x => pmap suc (zero-neutral-left x)
+
+\func +-assoc (x y z : Nat) : x + y + z = x + (y + z) \elim z
+  | zero  => idp
+  | suc z => pmap suc (+-assoc x y z)
+
+\func +-comm (x y : Nat) : x + y = y + x \elim y
+  | zero  => inv (zero-neutral-left x)
+  | suc y => {?} -- 1 + (x + y) = 1 + y + x
+-- goal: suc (x + y) = suc y + x
+-- x + suc y = suc y + x
+
+\func \infixl 7 * (x y : Nat) : Nat \elim y
+  | zero  => zero        -- x * 0 := 0
+  | suc y => x + (x * y) -- x * (1 + y) := x + x * y
+
+\func one : Nat => suc zero
+
+-- \func one-neutral-right (x : Nat) : x * one = x
+
+-- \func one-neutral-left (x : Nat) : one * x = x
+
+-- | (a * b) * c = a * (b * c)
+-- \func *-assoc : {?} => {?}
+
+-- | a * b = b * a
+-- \func *-comm : {?} => {?}
+
+-- | a * (b + c) = a * b + a * c
+-- \func *-+-distrib-left : {?} => {?}
+
+-- | (a + b) * c = a * c + b * c
+-- \func *-+-distrib-right : {?} => {?}
+
+\func \infixl 8 ^ (x y : Nat) : Nat \elim y
+  | zero  => one       -- x ^ 0 := 1
+  | suc y => x * x ^ y -- x ^ (1 + y) := x ^ 1 * x ^ y := x * x ^ y
+
+-- | a ^ (b + c) = a ^ b * a ^ c
+-- \func ^-+-distrib-left : {?} => {?}
+
+-- | (a * b) ^ c = a ^ c * b ^ c
+-- \func ^-*-distrib-right : {?} => {?}

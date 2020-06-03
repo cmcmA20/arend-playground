@@ -1,4 +1,3 @@
-
 \open Nat
 
 \data Empty
@@ -210,9 +209,21 @@
     \func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
       => coe (\lam i => B (p @ i)) b right
 
+\func autism (x : Nat) (p : x = 2) : 3 * x = 3 * 2 => pmap (3 *) {x} {2} p
+
+\func nil-unit-right {A : \Type} (xs : List A) : xs ++ nil = xs
+  | nil => idp
+  | cons x xs => pmap (cons x) (nil-unit-right xs)
+
 \func ex14-++-assoc {A : \Type} (xs ys zs : List A) : (xs ++ ys) ++ zs = xs ++ (ys ++ zs) \elim xs, ys
-  | nil, nil => idp
-  | nil, cons x xs => idp
-  -- ...
-  | cons x xs, nil => {?}
-  | cons x xs, cons x1 xs1 => {?}
+  | nil, nil             => idp
+  | nil, cons x xs       => idp
+  | cons x xs, nil       => pmap (cons x) (pmap (\lam s => s ++ zs) (nil-unit-right xs))
+  | cons x xs, cons y ys =>
+    \let w => ex14-++-assoc xs (cons y ys) zs
+    \in pmap (cons x) (w)
+
+\func ex14-++-assoc' {A : \Type} (xs ys zs : List A) : (xs ++ ys) ++ zs = xs ++ (ys ++ zs) \elim xs
+  | nil       => idp
+  | cons x xs => pmap (cons x) (ex14-++-assoc' xs ys zs)
+
