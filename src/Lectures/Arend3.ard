@@ -3,6 +3,7 @@
 \func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
   => coe (\lam i => B (p @ i)) b right
 
+-- congruence
 \func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
   => transport (\lam x => f a = f x) p idp
 
@@ -36,6 +37,9 @@
 \func +-assoc (x y z : Nat) : x + y + z = x + (y + z) \elim z
   | zero  => idp
   | suc z => pmap suc (+-assoc x y z)
+
+\func suc-+-comm (x y : Nat) : suc (x + y) = suc x + y
+  => {?}
 
 \func +-comm (x y : Nat) : x + y = y + x \elim y
   | zero  => inv (zero-neutral-left x)
