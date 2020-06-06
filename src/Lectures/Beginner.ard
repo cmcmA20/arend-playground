@@ -6,11 +6,20 @@
 \data Unit
   | unit
 
+\func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+  => coe (\lam i => B (p @ i)) b right
+
+-- congruence
 \func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
   => transport (\lam x => f a = f x) p idp
-  \where
-    \func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
-      => coe (\lam i => B (p @ i)) b right
+
+-- Симметрия равенства (наверное так можно назвать) symmetry
+\func inv {A : \Type} {a a' : A} (p : a = a') : a' = a \elim p
+  | idp => idp
+
+-- transitivity
+\func trans {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a''
+  => transport (\lam x => a = x) q p
 ------------------------------------------------------
 -- Различные определения по учебнику
 ------------------------------------------------------
@@ -169,9 +178,6 @@
   | true  => Unit
   | false => Empty
 
--- Коммутативность равенства (наверное так можно назвать)
-\func inv {A : \Type} {a a' : A} (p : a = a') : a' = a \elim p
-  | idp => idp
 -----------------------------------------------------
 -- ГЛАВА 1: Основы
 -----------------------------------------------------
@@ -466,6 +472,12 @@
 -----------------------------------------------------
 -- Дополнительные от Паши
 -----------------------------------------------------
+
+-- Свойства равенств: рефлексивность, симметричность, транзитивность
+\func reflexivity (a : Nat) : a = a => idp
+\func symmetry (a b : Nat) (p : a = b) : b = a
+
+{-
 \func one : Nat => suc zero
 
 \func null-plus-right (x : Nat) : x + 0 = x \elim x
@@ -497,19 +509,25 @@
   | suc z => pmap suc (+-assoc x y z)
 
 \func suc-+-comm (x y : Nat) : suc (x + y) = suc x + y \elim y
-  | 0 => idp
+  | 0     => idp
   | suc y => pmap (suc) (suc-+-comm x y)
 
+\func +-comm (x y : Nat) : x + y = y + x \elim y
+  | 0     => inv (null-plus-left x)
+  | suc y => trans (pmap (suc) (+-comm x y)) (suc-+-comm y x)
+
 -- | (a * b) * c = a * (b * c)
--- \func *-assoc (a b c : Nat) : a * b * c = a * (b * c) \elim a, c
+-- \func *-assoc (a b c : Nat) : a * b * c = a * (b * c) \elim a
 
 -- | a * b = b * a
--- \func *-comm (a b : Nat) : a * b = b * a \elim a
+\func *-comm (a b : Nat) : a * b = b * a \elim a
+  | 0 => null-multi-left b
+  | suc a => {?whatAFuck?}
 
 -- | a * (b + c) = a * b + a * c
 -- \func *-+-distrib-left : {?} => {?}
 
 -- | (a + b) * c = a * c + b * c
 -- \func *-+-distrib-right : {?} => {?}
-
+-}
 
