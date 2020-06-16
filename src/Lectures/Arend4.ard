@@ -1,0 +1,209 @@
+\open Nat
+\data List (A : \Type)
+  | nil
+  | cons A (List A)
+
+\data Bool
+  | true
+  | false
+
+\func if {A : \Type} (b : Bool) (t e : A) : A \elim b
+  | true => t
+  | false => e
+
+\func sort {A : \Type} (less : A -> A -> Bool) (xs : List A) : List A \elim xs
+  | nil => nil
+  | cons x xs => insert less x (sort less xs)
+  \where
+    \func insert {A : \Type} (less : A -> A -> Bool) (x : A) (xs : List A) : List A \elim xs
+      | nil => cons x nil
+      | cons x' xs => if (less x x') (cons x (cons x' xs)) (cons x' (insert less x xs))
+
+\func \infixl 4 < (a b : Nat) : Bool \elim a,b
+  | 0, 0         => false
+  | 0, suc b     => true
+  | suc a, 0     => false
+  | suc a, suc b => a < b
+
+\func reverse {A : \Type} (xs : List A) : List A => rev nil xs
+  \where
+    \func rev {A : \Type} (acc xs : List A) : List A \elim xs
+      | nil => acc
+      | cons x xs => rev (cons x acc) xs
+
+\func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs => rev-isInv nil xs
+  \where
+    \func rev-isInv {A : \Type} (acc xs : List A) : reverse (reverse.rev acc xs) = reverse.rev xs acc \elim xs
+      | nil => idp
+      | cons x xs => rev-isInv (cons x acc) xs
+
+\data Unit | unit
+\data Empty
+
+\func T (b : Bool) : \Type
+  | true  => Unit
+  | false => Empty
+
+\func length {A : \Type} (xs : List A) : Nat \elim xs
+  | nil       => zero
+  | cons a xs => suc (length xs)
+
+\func lookup' {A : \Type} (n : Nat) (xs : List A) (p : T (n < length xs)) : A \elim n, xs, p
+  | 0, cons a xs, unit  => a
+  | suc n, cons a xs, p => lookup' (n) (xs) p
+
+\func test => lookup' 2 (cons 11 (cons 22 (cons 33 (nil)))) (unit)
+
+\func vec (A : \Type) (n : Nat) : \Type \elim n
+  | 0     => \Sigma
+  | suc n => \Sigma A (vec A n)
+
+\func head {A : \Type} (n : Nat) (xs : vec A (suc n)) => xs.1
+
+\func tail {A : \Type} (n : Nat) (xs : vec A (suc n)) => xs.2
+
+\data Vec (A : \Type) (n : Nat) \elim n
+  | 0     => vnil
+  | suc n => vcons (x : A) (xs : Vec A n)
+
+\func Head {A : \Type} {n : Nat} (xs : Vec A (suc n)) : A \elim xs
+  | vcons x _ => x
+
+\func Tail {A : \Type} {n : Nat} (xs : Vec A (suc n)) : Vec A n \elim xs
+  | vcons _ xs => xs
+
+\data Maybe (A : \Type)
+  | nothing
+  | just (a : A)
+
+\func first {A : \Type} {n : Nat} (xs : Vec A n) : Maybe A \elim n, xs
+  | 0    , vnil       => nothing
+  | suc n, vcons x xs => just x
+
+\func append {A : \Type} {n m : Nat} (xs : Vec A n) (ys : Vec A m) : Vec A (m + n) \elim n, xs
+  | 0     , vnil       => ys
+  | suc _ , vcons x xs => vcons x (append xs ys)
+
+\func replicate-vec {A : \Type} (n : Nat) (e : A) : vec A n \elim n
+  | 0     => ()
+  | suc n => (e, replicate-vec n e)
+
+\func replicate-Vec {A : \Type} (n : Nat) (e : A) : Vec A n \elim n
+  | 0     => vnil
+  | suc n => vcons (e) (replicate-Vec n e)
+
+\func map-vec {A B : \Type}
+              (f : A -> B)
+              {n : Nat}
+              (vs : vec A n) : vec B n \elim n, vs
+  | 0    , vs     => ()
+  | suc n, (h, t) => (f h, map-vec f t)
+-- | suc n, vs => (f vs.1, map-vec f vs.2)
+  
+\func map-Vec {A B : \Type}
+              (f : A -> B)
+              {n : Nat}
+              (vs : Vec A n) : Vec B n \elim n, vs
+  | 0    , vnil       => vnil
+  | suc n, vcons x xs => vcons (f x) (map-Vec f xs)
+
+\func zipWith-vec {A B C : \Type}
+                  (f : A -> B -> C)
+                  {n : Nat}
+                  (vas : vec A n)
+                  (vbs : vec B n) : vec C n \elim n, vas, vbs
+  | 0    , vas      , vbs       => ()
+  | suc n, (va, vas), (vb, vbs) => (f va vb, zipWith-vec f vas vbs)
+
+\func zipWith-Vec {A B C : \Type}
+                  (f : A -> B -> C)
+                  {n : Nat}
+                  (vas : Vec A n)
+                  (vbs : Vec B n) : Vec C n \elim n, vas, vbs
+  | 0    , vnili     , vnil         => vnil
+  | suc n, vcons x xs, vcons y ys   => vcons (f x y) (zipWith-Vec f xs ys)
+
+-- foldr (+) 0 (cons 1 (cons 2 (cons 3 nil))) = 1 + (2 + (3 + 0))
+\func foldr-list {A B : \Type} (f : A -> B -> B) (z : B) (as : List A) : B \elim as
+  | nil       => z
+  | cons a as => f a (foldr-list f z as)
+
+\func foldr-list-test1 : foldr-list (+) 0 (cons 1 (cons 2 (cons 3 nil))) = 1 + (2 + (3 + 0))
+  => idp
+
+\func foldr-list-test2 : foldr-list cons nil (cons 1 (cons 2 (cons 3 nil))) = cons 1 (cons 2 (cons 3 nil))
+  => idp
+
+\func foldr-vec {A B : \Type} {n : Nat} (f : A -> B -> B) (z : B) (as : vec A n) : B \elim n, as
+  | 0    , as => z
+  | suc n, as => f as.1 (foldr-vec f z as.2)
+
+\func foldr-Vec {A B : \Type} {n : Nat} (f : A -> B -> B) (z : B) (as : Vec A n) : B \elim n, as
+  | 0    , vnil       => z
+  | suc n, vcons x xs => f x (foldr-Vec f z xs)
+
+
+\func fin (n : Nat) : \Type =>
+  \Sigma (x : Nat) (T (x < n))
+
+\func Fin' (n : Nat) : \Set0
+  | 0     => Empty
+  | suc n => Maybe (Fin' n)
+
+\data Fin (n : Nat) \with
+  | suc n => {
+    | fzero
+    | fsuc (fn : Fin n)
+  }
+
+\func toNat {n : Nat} (x : Fin n) : Nat
+  | {suc _}, fzero  => 0
+  | {suc _}, fsuc x => suc (toNat x)
+
+
+\func lookup {A : \Type} {n : Nat} (xs : Vec A n) (i : Fin n) : A \elim n, xs, i
+  | suc _, vcons x _ , fzero   => x
+  | suc _, vcons _ xs, fsuc fn => lookup xs fn
+
+\func corresfrom (fn : Fin 3) : Nat \elim fn
+  | fzero => 7
+  | fsuc fzero => 4
+  | fsuc (fsuc fzero) => 3
+  | fsuc (fsuc (fsuc ()))
+
+\func corresto => vcons 7 (vcons 4 (vcons 3 vnil))
+
+--                                                               Fin 0
+-- fzero                                                     :   Fin 1
+-- fzero, fsuc fzero                                         :   Fin 2
+-- fzero, fsuc fzero, fsuc fsuc fzero                        :   Fin 3
+-- fzero, fsuc fzero, fsuc fsuc fzero, fsuc fsuc fsuc fzero  :   Fin 4
+-- ...
+
+-- ..., Fin 4, Fin 3, Fin 2, Fin 1, Fin 0
+-- ..., Fin 4, Fin 3, Fin 2, Fin 1         ;  fzero
+-- ..., Fin 4, Fin 3, Fin 2                ;  fsuc fzero
+-- ..., Fin 4, Fin 3                       ;  fsuc fsuc fzero
+-- ..., Fin 4                              ;  fsuc fsuc fsuc fzero
+
+\func finWeaken {n : Nat} (i : Fin n) : Fin (suc n) \elim n, i
+  | suc n, fzero   => fzero
+  | suc n, fsuc fn => {?}
+
+-- (Fin (suc n) -> A) =~ (Vec A (suc n))
+\func correspond {A : \Type} {n : Nat} (x : Fin n -> A) : Vec A n \elim n
+  | 0     => vnil
+  | suc n => vcons (x fzero) (correspond (\lam y => x (finWeaken y)))
+
+\func cocorespond {A : \Type} {n : Nat} (x : Vec A (suc n)) : Fin (suc n) -> A \elim n, x
+  | 0    , vcons x vnil => (\lam y => x)
+  | suc n, vcons x xs   => (\lam y => {?})
+
+\func cortest1 : correspond corresfrom = corresto => idp
+
+\func unit-lemma : \Pi (x : Unit) -> x = unit
+  => {?}
+
+\func isProp (A : \Type) : \Type
+  => \Pi (x y : A) -> x = y
+

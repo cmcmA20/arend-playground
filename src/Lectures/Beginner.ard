@@ -474,8 +474,13 @@
 -----------------------------------------------------
 
 -- Свойства равенств: рефлексивность, симметричность, транзитивность
-\func reflexivity (a : Nat) : a = a => idp
-\func symmetry (a b : Nat) (p : a = b) : b = a
+\func reflivity {A : \Type} {a : A} : a = a => idp
+
+\func symmetry {A : \Type} {a b : A} (p : a = b) : b = a => inv p
+
+\func transitivity {A : \Type} {a b c : A} (p : a = b) (q : b = c) : a = c => trans p q
+
+
 
 {-
 \func one : Nat => suc zero
