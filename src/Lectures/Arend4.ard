@@ -1,4 +1,7 @@
+\import Paths
+
 \open Nat
+
 \data List (A : \Type)
   | nil
   | cons A (List A)
@@ -150,11 +153,35 @@
   | 0     => Empty
   | suc n => Maybe (Fin' n)
 
-\data Fin (n : Nat) \with
+-- Fin : Nat -> Type
+-- ??? : Fin zero
+-- fzero : Fin (suc zero)
+-- fzero, fsuc (fzero) : Fin 2
+\data Fin (n : Nat) : \Set0 \with
   | suc n => {
     | fzero
     | fsuc (fn : Fin n)
   }
+
+-- \Type
+-- \Type 2 0
+-- \Set2
+
+-- homotopy level    -2       -1         0      1       ...      oo
+-- universe size
+--     0            Unit     Prop      Set0    Gpd0             oo-Gpd
+--     1            Unit     Prop      Set1    Gpd1
+--     2            Unit     Prop      Set2    Gpd2
+--     3            Unit     Prop      Set3    Gpd3
+--    ...
+
+\data Muffin (n : Nat) : \Type 2 0 \elim n
+  | suc n => {
+    | myfzero
+    | myfsuc (fn : Fin n)
+  }
+
+\func qwe1 : Muffin 1 => myfzero
 
 \func toNat {n : Nat} (x : Fin n) : Nat
   | {suc _}, fzero  => 0
@@ -187,23 +214,165 @@
 -- ..., Fin 4                              ;  fsuc fsuc fsuc fzero
 
 \func finWeaken {n : Nat} (i : Fin n) : Fin (suc n) \elim n, i
-  | suc n, fzero   => fzero
-  | suc n, fsuc fn => {?}
+  | suc _, fzero   => fzero
+  | suc _, fsuc fn => fsuc (finWeaken fn)
 
 -- (Fin (suc n) -> A) =~ (Vec A (suc n))
 \func correspond {A : \Type} {n : Nat} (x : Fin n -> A) : Vec A n \elim n
   | 0     => vnil
   | suc n => vcons (x fzero) (correspond (\lam y => x (finWeaken y)))
 
-\func cocorespond {A : \Type} {n : Nat} (x : Vec A (suc n)) : Fin (suc n) -> A \elim n, x
-  | 0    , vcons x vnil => (\lam y => x)
-  | suc n, vcons x xs   => (\lam y => {?})
+--  ||
+--  0x2 0x3
+--  3x0 7x0
+--  2x3 * 3x7 = 2x7
+--  3x0 * 0x2 = 3x2
 
-\func cortest1 : correspond corresfrom = corresto => idp
+--  3x0 =~ R^0 -> R^3
+--  0x2 =~ R^2 -> R^0
+--  3x2 =~ R^2 -> R^3
 
-\func unit-lemma : \Pi (x : Unit) -> x = unit
-  => {?}
+\func Mat' (A : \Type) (m n : Nat) => Vec (Vec A n) m
 
-\func isProp (A : \Type) : \Type
-  => \Pi (x y : A) -> x = y
+\func qweds : Mat' Nat 0 1 => vnil
+\func qweds2 : Mat' Nat 0 2 => vnil
+\func qweds3 : Mat' Nat 2 0 => vcons vnil (vcons vnil vnil)
 
+\data Mat (A : \Type) (m n : Nat) \elim m, n
+  | 0    , 0     => matzero
+  | 0    , suc n => matcols
+  | suc m, 0     => matrows
+  | suc m, suc n => mat (Vec (Vec A (suc n)) (suc m) )
+
+\func qwewqwqeqw : Mat Nat 0 2 => matcols
+\func sdfasdfd : Mat Nat 2 0 => matrows
+\func sadfdsafsdaf : Mat Nat 1 1 => mat (vcons (vcons 3 vnil) vnil)
+\func adsfdsafff : Mat Nat 2 2 => mat (vcons (vcons 4 (vcons 3 vnil)) (vcons (vcons 4 (vcons 4 vnil)) vnil))
+
+-- z = 0
+--  | z z |
+--  | z z |
+\func empty {A : \Type} (z : A) (m n : Nat) : Mat A m n \elim m, n
+  | 0, 0         => matzero
+  | 0, suc _     => matcols
+  | suc _, 0     => matrows
+  | suc m, suc n => mat (replicate-Vec (suc m) (replicate-Vec (suc n) z))
+
+--  | e |
+
+--  | e z |
+--  | z e |
+
+--  | e z |
+--  | z e |
+
+--  | e z  z  |
+--  | z [e z] |
+--  | z [z e] |
+
+--  | e z z |
+--
+--  | (e z) |
+--  | (z e) |
+
+\func diag {A : \Type} (z e : A) (n : Nat) : Mat A n n \elim n
+  | 0     => matzero
+  | suc n => mat (vcons (vcons e (replicate-Vec n z)) (map-Vec (vcons z) (fMTV (diag z e n) )))
+
+\func fMTV {A : \Type} {m n : Nat} (x : Mat A m n) : Vec (Vec A n) m \elim m, n, x
+  | 0,     0,     matzero => vnil
+  | 0,     suc n, matcols => vnil
+  | suc m, 0,     matrows => replicate-Vec (suc m) vnil
+  | suc m, suc n, mat v   => v
+
+-- 0x0 matzero
+-- 0x(n+1) matrows
+-- (m+1)x0 matcols
+-- (m+1)x(n+2) ...
+-- (m+1)x1
+\func transpose {A : \Type} {m n : Nat} (M : Mat A m n) : Mat A n m \elim m, n, M
+  | 0    , 0          , matzero => matzero
+  | 0    , suc n      , matcols => matrows
+  | suc m, 0          , matrows => matcols
+  | suc m, 1          , mat v   => mat (vcons (map-Vec Head v) vnil)
+  | suc m, suc (suc n), mat v   => mat (vcons (map-Vec Head v) (fMTV (transpose (mat (map-Vec Tail v)))))
+
+--  | (1 3 6) |   +   | (2 2 1) |   =   | (3 5 7) |
+--  | (4 2 1) |   +   | (1 5 8) |   =   | (5 7 9) |
+\func matAdd {A : \Type} (add : A -> A -> A) (m n : Nat) (X Y : Mat A m n) : Mat A m n \elim m,n,X,Y
+  | 0,     0,     matzero, matzero => matzero
+  | 0,     suc n, matcols, matcols => matcols
+  | suc m, 0,     matrows, matrows => matrows
+  | suc m, suc n, mat v,   mat v1  => mat (zipWith-Vec (zipWith-Vec add) v v1)
+  
+
+\func matMul {A : \Type} (z : A) (add mul : A -> A -> A) (n m k : Nat) (X : Mat A n m) (Y : Mat A k n) : Mat A k m => {?}
+
+-- CT(A, 0    ) = 1
+-- CT(A, n + 1) = A * CT(A, n) * CT(A, n)
+
+-- CT(A, 0) = 1
+-- CT(A, 1) = A * 1 * 1 = A
+-- CT(A, 2) = A * A * A = A^3
+-- CT(A, 3) = A * A^3 * A^3 = A^7
+
+\data CTree (A : \Type) (n : Nat) \elim n
+  | zero  => leaf
+  | suc n => node (c : A) (l : CTree A n) (r : CTree A n)
+
+-- Разобрать попозже
+\data Tree (A : \Type) (n : Nat) \elim n
+  | zero  => leaf'
+  | suc n => {
+    | leaf''
+    | nodel  (c : A) (l : Tree A n)
+    | noder  (c : A) (r : Tree A n)
+    | node'  (c : A) (l : Tree A n)  (r : Tree A n)
+    | node'' (c : A)
+  }
+
+
+--   9
+--  /
+-- l
+\func asd1 : Tree Nat 1 => nodel 9 leaf'
+
+--   9
+--    \
+--     l
+\func asd2 : Tree Nat 1 => noder 9 leaf'
+
+--   9
+--  / \
+-- l   l
+\func asd3 : Tree Nat 1 => node' 9 leaf' leaf'
+
+\func asd4 : Tree Nat 4 => leaf''
+\func asd5 : Tree Nat 666 => node'' 9
+-- l
+
+\data Foo
+  | foo1
+  | foo2
+  | foo3
+  | foo12 (i : I) \elim i {
+    | left  => foo1
+    | right => foo2
+  }
+  | foo23 (i : I) \elim i {
+    | left  => foo2
+    | right => foo3
+  }
+
+\func R (f : Foo) : \Type \elim f
+  | foo1    => Unit
+  | foo2    => Unit
+  | foo3    => Empty
+  | foo12 i => Unit
+  | foo23 i => {?}
+
+-- \func foo1=/=3 (p : foo1 = foo3) : Empty => transport R p unit
+
+-- \func foo1==3 : foo1 = foo3 => path foo12 *> path foo23
+
+-- \func boom : Empty => foo1=/=3 foo1==3

@@ -114,7 +114,7 @@
 
 \func LessOrEq''' (n m : Nat) => \Sigma (k : Nat) (k + n = m)
 
-\data Empty
+-- \data Empty
 
 \data Unit | unit
 
@@ -144,7 +144,78 @@
 -- Third inductive definition of <=.
 \data LessOrEq'' (n m : Nat) \elim m
   | suc m => <=-step (LessOrEq'' n m)
-  | m => <=-refl (n = m)
+  | m     => <=-refl (n = m)
+
+\func n<=n {n : Nat} : lessOrEq n n
+  | {0}     => unit
+  | {suc _} => n<=n
+
+\func leq01 {n m : Nat} (p : lessOrEq n m) : LessOrEq n m \elim n, m, p
+  | 0    , 0    , unit => z<=n
+  | 0    , suc _, unit => z<=n
+  | suc _, suc _, p    => s<=s (leq01 p)
+
+\func leq12 {n m : Nat} (p : LessOrEq n m) : LessOrEq' n m
+  | {0}    , {0}    , z<=n   => z<=n' idp
+  | {0}    , {suc _}, z<=n   => z<=n' idp
+  | {suc _}, {suc _}, s<=s p => s<=s' idp idp (leq12 p)
+
+\func Z (n : Nat) : \Type
+  | 0     => Unit
+  | suc _ => Empty
+
+\func n''<=n'' {n : Nat} : LessOrEq'' n n
+  | {0}     => <=-refl idp
+  | {suc _} => <=-refl idp
+
+\func n''<=sucm'' {n m : Nat} (p : LessOrEq'' n m) : LessOrEq'' n (suc m)
+  | {0}    , {0}    , <=-refl p => <=-step (<=-refl p)
+  | {0}    , {suc _}, <=-step p => <=-step (n''<=sucm'' p)
+  | {0}    , {suc m}, <=-refl p => absurd (transport Z p unit)
+  | {suc _}, {0}    , <=-refl p => absurd (transport Z (inv p) unit)
+  | {suc _}, {suc _}, <=-step p => <=-step (n''<=sucm'' p)
+  | {suc _}, {suc m}, <=-refl p => <=-step (transport (\lam z => LessOrEq'' z (suc m)) (inv p) n''<=n'')
+
+\func sucn''<=sucm'' {n m : Nat} (p : LessOrEq'' n m) : LessOrEq'' (suc n) (suc m)
+  | {0}    , {0}    , <=-refl _ => <=-refl idp
+  | {0}    , {suc _}, <=-step p => n''<=sucm'' (sucn''<=sucm'' p)
+  | {0}    , {suc _}, <=-refl p => absurd (transport Z p unit)
+  | {suc _}, {0}    , <=-refl p => absurd (transport Z (inv p) unit)
+  | {suc _}, {suc _}, <=-step p => <=-step (sucn''<=sucm'' p)
+  | {suc _}, {suc _}, <=-refl p => <=-refl (pmap suc p)
+
+\func leq23 {n m : Nat} (p : LessOrEq' n m) : LessOrEq'' n m
+  | {0}    , {0}    , z<=n' _     => <=-refl idp
+  | {0}    , {0}    , s<=s' _ _ _ => <=-refl idp
+  | {0}    , {suc _}, z<=n' p     => <=-step (leq23 (z<=n' p))
+  | {0}    , {suc _}, s<=s' _ _ _ => <=-step (leq23 (z<=n' idp))
+  | {suc _}, {0}    , z<=n' p     => <=-refl p
+  | {suc _}, {0}    , s<=s' p q r => absurd (transport Z q unit)
+  | {suc _}, {suc _}, z<=n' p     => absurd (transport Z (inv p) unit)
+  | {suc _}, {suc _}, s<=s' p q r =>
+    \let | u => inv (suc-inj p)
+         | v => inv (suc-inj q)
+     \in sucn''<=sucm'' (leq23 (transport (\lam z => LessOrEq' z.1 z.2) (path (\lam i => (u @ i, v @ i))) r))
+
+\func n''<=sucn'' {n : Nat} : LessOrEq'' n (suc n)
+  | {0}     => <=-step (<=-refl idp)
+  | {suc _} => sucn''<=sucm'' n''<=sucn''
+
+\func sucn''<=m'' {n m : Nat} (p : LessOrEq'' (suc n) m) : LessOrEq'' n m
+  | {0}    , {0}    , <=-refl p => absurd (transport Z (inv p) unit)
+  | {0}    , {suc _}, <=-step p => <=-step (sucn''<=m'' p)
+  | {0}    , {suc _}, <=-refl p => <=-step (<=-refl (suc-inj p))
+  | {suc _}, {0}    , <=-refl p => absurd (transport Z (inv p) unit)
+  | {suc _}, {suc _}, <=-step p => sucn''<=sucm'' (sucn''<=m'' (sucn''<=m'' p))
+  | {suc _}, {suc m}, <=-refl p => transport (\lam z => LessOrEq'' z (suc m)) (inv (suc-inj p)) n''<=sucn''
+
+\func leq30 {n m : Nat} (p : LessOrEq'' n m) : lessOrEq n m
+  | {0}    , {0}    , <=-refl _ => unit
+  | {0}    , {suc _}, <=-step _ => unit
+  | {0}    , {suc _}, <=-refl _ => unit
+  | {suc _}, {0}    , <=-refl p => transport Z (inv p) unit
+  | {suc _}, {suc _}, <=-step p => leq30 (sucn''<=m'' p)
+  | {suc n}, {suc _}, <=-refl p => transport (lessOrEq n) (suc-inj p) n<=n
 
 \func hfill1 {A : \Type} {a b c d : A} (p : a = b) (q : a = c) (r : b = d)
   : \Pi (i : I) -> q @ i = r @ i
