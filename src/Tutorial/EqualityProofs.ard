@@ -217,10 +217,33 @@
   | {suc _}, {suc _}, <=-step p => leq30 (sucn''<=m'' p)
   | {suc n}, {suc _}, <=-refl p => transport (lessOrEq n) (suc-inj p) n<=n
 
+\data List (A : \Type)
+  | nil
+  | cons (x : A) (xs : List A)
+
+\data In {A : \Type} (a : A) (xs : List A) \elim xs
+  | cons x xs => {
+    | here (p : x = a)
+    | there (p : In a xs)
+  }
+
+-- remember that natural definition is unfun to work with
+-- \data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A)
+
+--  c.......d
+--  |.......|
+--  q.......r
+--  |.......|
+--  a---p---b
 \func hfill1 {A : \Type} {a b c d : A} (p : a = b) (q : a = c) (r : b = d)
   : \Pi (i : I) -> q @ i = r @ i
   => coe2 (\lam i => q @ i = r @ i) left p
 
+--  c.......d
+--  |       |
+--  q       r
+--  |       |
+--  a---p---b
 \func hcomp1 {A : \Type} {a b c d : A} (p : a = b) (q : a = c) (r : b = d) : c = d
   => hfill1 p q r right
 --   => coe0 (\lam i => q @ i = r @ i) p
