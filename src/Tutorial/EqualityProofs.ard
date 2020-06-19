@@ -112,8 +112,6 @@
   | 0    , vnil       => idp
   | suc n, vcons x xs => v++-assoc.transport-vcons-comm (+-comm 0 n) x (xs v++ vnil) *> pmap (vcons x) (vnil-rightId xs)
 
-\func LessOrEq''' (n m : Nat) => \Sigma (k : Nat) (k + n = m)
-
 -- \data Empty
 
 \data Unit | unit
@@ -146,9 +144,11 @@
   | suc m => <=-step (LessOrEq'' n m)
   | m     => <=-refl (n = m)
 
-\func n<=n {n : Nat} : lessOrEq n n
+\func LessOrEq''' (n m : Nat) => \Sigma (k : Nat) (k + n = m)
+
+\func leqrefl {n : Nat} : lessOrEq n n
   | {0}     => unit
-  | {suc _} => n<=n
+  | {suc _} => leqrefl
 
 \func leq01 {n m : Nat} (p : lessOrEq n m) : LessOrEq n m \elim n, m, p
   | 0    , 0    , unit => z<=n
@@ -215,7 +215,27 @@
   | {0}    , {suc _}, <=-refl _ => unit
   | {suc _}, {0}    , <=-refl p => transport Z (inv p) unit
   | {suc _}, {suc _}, <=-step p => leq30 (sucn''<=m'' p)
-  | {suc n}, {suc _}, <=-refl p => transport (lessOrEq n) (suc-inj p) n<=n
+  | {suc n}, {suc _}, <=-refl p => transport (lessOrEq n) (suc-inj p) leqrefl
+
+\func leq14 {n m : Nat} (p : LessOrEq n m) : LessOrEq''' n m
+  | {0}    , {0}    , z<=n   => (0, idp)
+  | {0}    , {suc m}, z<=n   => (suc m, idp)
+  | {suc n}, {suc m}, s<=s p =>
+    \let w => leq14 p
+    \in (w.1, pmap suc w.2)
+
+\func zero-neutral-left (x : Nat) : 0 + x = x
+  | zero  => idp
+  | suc x => pmap suc (zero-neutral-left x)
+
+\func n<=n {n : Nat} : LessOrEq n n
+  | {0}     => z<=n
+  | {suc _} => s<=s n<=n
+
+\func leq41 {n m : Nat} (p : LessOrEq''' n m) : LessOrEq n m \elim n, m, p
+  | 0    , _    , (_, _) => z<=n
+  | suc _, 0    , (_, p) => absurd (transport Z (inv p) unit)
+  | suc _, suc _, (k, p) => s<=s (leq41 (k, suc-inj p))
 
 \data List (A : \Type)
   | nil
@@ -227,8 +247,19 @@
     | there (p : In a xs)
   }
 
--- remember that natural definition is unfun to work with
 -- \data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A)
+--   | rtcRefl (w : R x y) (p : x = y)
+--   | rtcStep (z : A) (u : R x z) (v : ReflTransClosure R z y)
+--
+-- \func \infix 4 <-> {A : \Type} (P Q : A -> A -> \Type) : \Type
+--   => \Pi (x y : A) -> \Sigma (P x y -> Q x y) (Q x y -> P x y)
+--
+-- \func ReflTransClosure-lem
+--   {A : \Type} (R : A -> A -> \Type)
+--   (refl : \Pi (x : A) -> R x x)
+--   (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
+--   : R <-> ReflTransClosure R
+--   => {?}
 
 --  c.......d
 --  |.......|
