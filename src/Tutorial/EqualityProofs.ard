@@ -247,19 +247,39 @@
     | there (p : In a xs)
   }
 
--- \data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A)
---   | rtcRefl (w : R x y) (p : x = y)
---   | rtcStep (z : A) (u : R x z) (v : ReflTransClosure R z y)
---
--- \func \infix 4 <-> {A : \Type} (P Q : A -> A -> \Type) : \Type
---   => \Pi (x y : A) -> \Sigma (P x y -> Q x y) (Q x y -> P x y)
---
--- \func ReflTransClosure-lem
---   {A : \Type} (R : A -> A -> \Type)
---   (refl : \Pi (x : A) -> R x x)
---   (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
---   : R <-> ReflTransClosure R
---   => {?}
+\data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A)
+  | rtcRefl (w : R x y) (p : x = y)
+  | rtcStep (z : A) (u : R x z) (v : ReflTransClosure R z y)
+
+\func \infix 4 <-> {A : \Type} (P Q : A -> A -> \Type) : \Type
+  => \Pi (x y : A) -> \Sigma (P x y -> Q x y) (Q x y -> P x y)
+
+\func forth
+  {A : \Type}
+  {R : A -> A -> \Type}
+  (refl : \Pi (x : A) -> R x x)
+  (x y : A)
+  (w : R x y)
+  : ReflTransClosure R x y
+  => rtcStep y w (rtcRefl (refl y) idp)
+
+\func back
+  {A : \Type}
+  {R : A -> A -> \Type}
+  (refl : \Pi (x : A) -> R x x)
+  (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
+  (x y : A)
+  (t : ReflTransClosure R x y)
+  : R x y \elim t
+  | rtcRefl w _   => w
+  | rtcStep z u v => trans x z y u (back refl trans z y v)
+
+\func ReflTransClosure-lem
+  {A : \Type} (R : A -> A -> \Type)
+  (refl : \Pi (x : A) -> R x x)
+  (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
+  : R <-> ReflTransClosure R
+  => \lam x y => (forth refl x y, back refl trans x y)
 
 --  c.......d
 --  |.......|
