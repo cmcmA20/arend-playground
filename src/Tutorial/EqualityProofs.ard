@@ -281,6 +281,35 @@
   : R <-> ReflTransClosure R
   => \lam x y => (forth refl x y, back refl trans x y)
 
+\data Sublist {A : \Type} (xs ys : List A) \elim xs, ys
+  | nil      , _         => slEmpty
+  | cons x xs, cons y ys => {
+    | slTake (p : x = y) (q : Sublist xs ys)
+    | slDrop (q : Sublist (cons x xs) ys)
+  }
+
+\func ifte {A : \Type} (b : Bool) (fa tr : A) : A \elim b
+  | false => fa
+  | true  => tr
+
+\func filter {A : \Type} (p : A -> Bool) (xs : List A) : List A \elim xs
+  | nil       => nil
+  | cons x xs => ifte (p x) (filter p xs) (cons x (filter p xs))
+
+\func subcons {A : \Type} {xs ys : List A} {t : A} (p : Sublist xs ys) : Sublist xs (cons t ys) \elim xs, ys, p
+  | nil      , nil      , slEmpty    => slEmpty
+  | nil      , cons _ _ , slEmpty    => slEmpty
+  | cons x xs, cons _ ys, slTake p q => slDrop (transport (\lam z => Sublist (cons x xs) (cons z ys)) p (slTake idp q))
+  | cons _ _ , cons _ _ , slDrop q   => slDrop (slDrop q)
+
+\func filter-lem {A : \Type} {xs : List A} {p : A -> Bool} : Sublist (filter p xs) xs \elim xs
+  | nil       => slEmpty
+  | cons x xs =>
+    \case p x \as w \return Sublist (ifte w (filter p xs) (cons x (filter p xs))) (cons x xs) \with {
+      | false => subcons filter-lem
+      | true  => slTake idp filter-lem
+    }
+
 --  c.......d
 --  |.......|
 --  q.......r
