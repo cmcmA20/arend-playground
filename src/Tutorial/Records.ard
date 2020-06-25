@@ -477,15 +477,161 @@
   | join-right-unit' x => idp
   | join-assoc' x => idp
 
--- TODO
 \data Maybe (A : \Type)
   | nothing
   | just (a : A)
 
--- TODO
+\func maybefmap {A B : \Type} (f : A -> B) (x : Maybe A) : Maybe B \elim x
+  | nothing => nothing
+  | just a => just (f a)
+
+\func maybeap {A B : \Type} (u : Maybe (A -> B)) (x : Maybe A) : Maybe B \elim u, x
+  | just f , just a  => just (f a)
+  | _      , _       => nothing
+
+\func maybejoin {A : \Type} (xx : Maybe (Maybe A)) : Maybe A
+  | nothing => nothing
+  | just x  => x
+
+\instance MaybeIsMonad : Monad' Maybe
+  | fmap => maybefmap
+  | fmap-id x => \case \elim x \with {
+    | nothing => idp
+    | just a  => idp
+  }
+  | fmap-comp f g x => \case \elim x \with {
+    | nothing => idp
+    | just a  => idp
+  }
+  | pure => just
+  | fmap-pure f a => idp
+  | <*> => maybeap
+  | pure-id x => \case \elim x \with {
+    | nothing => idp
+    | just a  => idp
+  }
+  | pure-hom f a => idp
+  | pure-interchange u a => \case \elim u \with {
+    | nothing => idp
+    | just f  => idp
+  }
+  | pure-comp u v x => \case \elim u \with {
+    | nothing => idp
+    | just f  => \case \elim v \with {
+      | nothing => idp
+      | just g  => \case \elim x \with {
+        | nothing => idp
+        | just a  => idp
+      }
+    }
+  }
+  | pure-fmap f x => \case \elim x \with {
+    | nothing => idp
+    | just a  => idp
+  }
+  | join' => maybejoin
+  | join-nat' f x => idp
+  | join-left-unit' x => \case \elim x \with {
+    | nothing => idp
+    | just a  => idp
+  }
+  | join-right-unit' x => idp
+  | join-assoc' x => idp
+
+-- this one feels much easier to prove with than the State'
 \record State (S A : \Type)
   | state : S -> \Sigma S A
 
--- TODO
+\func stateEq {S A :\Type} {x y : State S A} (p : x.state = y.state) : x = y
+  => path (\lam i => \new State S A (p @ i))
+
+\func statefmap {S A B : \Type} (f : A -> B) (x : State S A) : State S B \cowith
+  | state => \lam s => \let (s', a) => x.state s \in (s', f a)
+
+\func stateap {S A B : \Type} (u : State S (A -> B)) (x : State S A) : State S B \cowith
+  | state => \lam s =>
+      \let | w => u.state s
+           | z => x.state (w.1)
+       \in (z.1, w.2 z.2)
+
+\func statejoin {S A : \Type} (xx : State S (State S A))  : State S A \cowith
+  | state => \lam s =>
+      \let w => xx.state s
+       \in (state {w.2}) (w.1)
+
+\instance StateIsMonad {S : \Type} : Monad' (\lam A => State S A)
+  | fmap => statefmap
+  | fmap-id x => idp
+  | fmap-comp f g x => idp
+  | pure a => \new State { | state => \lam s => (s, a)}
+  | fmap-pure f a => idp
+  | <*> => stateap
+  | pure-id x => idp
+  | pure-hom f a => idp
+  | pure-interchange u a => idp
+  | pure-comp u v x => idp
+  | pure-fmap f x => idp
+  | join' => statejoin
+  | join-nat' f x => idp
+  | join-left-unit' x => idp
+  | join-right-unit' x => idp
+  | join-assoc' x => idp
+
 \data State' (S A : \Type)
   | state' (S -> \Sigma S A)
+
+\func state'fmapUnderMap {S A B : \Type} (f : A -> B) (x : State' S A) : S -> \Sigma S B \elim x
+  | state' q => \lam s => ((q s).1, f (q s).2)
+
+\func state'fmap {S A B : \Type} (f : A -> B) (x : State' S A) : State' S B
+  => state' (state'fmapUnderMap f x)
+
+\func state'ap {S A B : \Type} (u : State' S (A -> B)) (x : State' S A) : State' S B
+  | state' p, state' q => state' (\lam s => \let | (s', f) => p s | (s'', a) => q s' \in (s'', f a))
+
+\func state'joinUnderMap {S A : \Type} (xx : State' S (State' S A)) : S -> \Sigma S A \elim xx
+  | state' x =>
+    \lam s => \let w : \Sigma S (State' S A) => x s \in \case \elim w \with { | (s', state' p) => p s'}
+
+\func state'join {S A : \Type} (xx : State' S (State' S A))  : State' S A
+  => state' (state'joinUnderMap xx)
+
+\instance State'IsMonad {S : \Type} : Monad' (\lam A => State' S A)
+  | fmap => state'fmap
+  | fmap-id {A} x => \case \elim x \with {
+    | state' q => idp
+  }
+  | fmap-comp f g x => \case \elim x \with {
+    | state' q => idp
+  }
+  | pure a => state' (\lam s => (s, a))
+  | fmap-pure f a => idp
+  | <*> => state'ap
+  | pure-id x => \case \elim x \with {
+    | state' q => idp
+  }
+  | pure-hom f a => idp
+  | pure-interchange u a => \case \elim u \with {
+    | state' p => idp
+  }
+  | pure-comp u v x => \case \elim u \with {
+    | state' p => \case \elim v \with {
+      | state' q => \case \elim x \with {
+        | state' r => idp
+      }
+    }
+  }
+  | pure-fmap f x => \case \elim x \with {
+    | state' q => idp
+  }
+  | join' => state'join
+  | join-nat' f x => \case \elim x \with {
+    | state' p => idp
+  }
+  | join-left-unit' x => \case \elim x \with {
+    | state' p => idp
+  }
+  | join-right-unit' x => \case \elim x \with {
+    | state' p => idp
+  }
+  | join-assoc' x => idp
