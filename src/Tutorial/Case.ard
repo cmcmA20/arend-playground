@@ -1,0 +1,558 @@
+
+-------------------------------------------------
+-- Filter via \case and via helper
+-------------------------------------------------
+
+\data Bool | false | true
+
+\data List (A : \Type) | nil | cons A (List A)
+
+\func filter {A : \Type} (p : A -> Bool) (xs : List A) : List A \elim xs
+  | nil => nil
+  | cons x xs => \case p x \with {
+    | true  => cons x (filter p xs)
+    | false => filter p xs
+  }
+
+\func filter' {A : \Type} (p : A -> Bool) (xs : List A) : List A \elim xs
+  | nil => nil
+  | cons x xs => helper (p x) x (filter p xs)
+  \where
+    \func helper {A : \Type} (b : Bool) (x : A) (r : List A) : List A \elim b
+      | true => cons x r
+      | false => r
+
+-- EXERCISE
+-- 1. Implement any sorting algorithm using \case for pattern matching on the result of comparison of elements
+-- of a list.
+
+\func bubbleSort' {A : \Type} (n : Nat) (less : A -> A -> Bool) (xs : List A) : List A \elim n, xs
+  | 0 , _                     => nil
+  | suc n, nil                => nil
+  | suc n, cons x nil         => cons x nil
+  | suc n, cons x (cons y xs) =>
+    \let | inh : List A => bubbleSort' n less (cons y xs)
+         | w : List A =>
+           \case inh \with {
+             | nil       => cons x nil
+             | cons t ts => \case less x t \with {
+               | true  => cons x (cons t ts)
+               | false => cons t (cons x ts)
+             }
+           }
+    \in \case w \with {
+      | nil       => nil
+      | cons u us => cons u (bubbleSort' n less us)
+    }
+
+\func bubbleSort {A : \Type} (less : A -> A -> Bool) (xs : List A) : List A
+  => bubbleSort' (suc (length xs)) less xs
+
+-------------------------------------------------
+-- Remark in \elim vs \case
+-------------------------------------------------
+
+\func f (x : Nat) : Nat => \case x \with { zero => 0 | suc n => n }
+\func f' (x : Nat) : Nat | zero => 0 | suc n => n
+
+-------------------------------------------------
+-- \case in dependently typed languages
+-------------------------------------------------
+
+\func not (b : Bool) : Bool
+  | true => false
+  | false => true
+
+\func foo {A : \Type} (p : A -> Bool) (a : A) : p a = not (not (p a)) =>
+  \case p a \as b \return b = not (not b) \with {
+    | true => idp
+    | false => idp
+  }
+
+\func foo' {A : \Type} (p : A -> Bool) (a : A) : p a = not (not (p a)) =>
+  helper (p a)
+  \where
+    \func helper (b : Bool) : b = not (not b) \elim b
+      | true => idp
+      | false => idp
+
+-------------------------------------------------
+-- \case with several arguments
+-------------------------------------------------
+
+\data Ordering | LT | EQ | GT
+
+\func \infix 4 < (x y : Nat) : Bool
+  | 0, 0 => false
+  | 0, suc y => true
+  | suc x, 0 => false
+  | suc x, suc y => x < y
+
+\func compare (x y : Nat) : Ordering =>
+  \case x < y, y < x \with {
+    | true, true => EQ -- this will never be matched
+    | true, false => LT
+    | false, true => GT
+    | false, false => EQ }
+
+-------------------------------------------------
+-- Proof of a fact about filter via \case
+-------------------------------------------------
+
+\data Empty
+
+\func absurd {A : \Type} (e : Empty) : A
+
+\data Unit | unit
+
+\func \infix 4 <= (x y : Nat) : \Type
+  | 0, _ => Unit
+  | suc _, 0 => Empty
+  | suc x, suc y => x <= y
+
+\func length {A : \Type} (xs : List A) : Nat
+  | nil => 0
+  | cons _ xs => suc (length xs)
+
+-- auxiliary helper lemma
+\func <=-helper {x y : Nat} (p : x <= y) : x <= suc y \elim x, y
+  | 0, _ => unit
+  | suc x, 0 => absurd p
+  | suc x, suc y => <=-helper p
+
+\func filter-lem {A : \Type} (p : A -> Bool) (xs : List A) : length (filter p xs) <= length xs \elim xs
+  | nil => unit
+  | cons x xs => \case p x \as b \return length (\case b \with { | true => cons x (filter p xs) | false => filter p xs }) <= suc (length xs) \with {
+    | true => filter-lem p xs
+    | false => <=-helper (filter-lem p xs)
+  }
+
+-- EXERCISE
+-- 2. Define 'filter' via 'if' not using \case.
+--    Prove the lemma 'filter-lem' for this version of 'filter'.
+
+\func if {A : \Type} (b : Bool) (tr fa : A) : A \elim b
+  | true  => tr
+  | false => fa
+
+\func filter'' {A : \Type} (p : A -> Bool) (xs : List A) : List A \elim xs
+  | nil       => nil
+  | cons x xs => if (p x) (cons x (filter'' p xs)) (filter'' p xs)
+
+\func filter''-lem {A : \Type} (p : A -> Bool) (xs : List A) : length (filter'' p xs) <= length xs \elim xs
+  | nil       => unit
+  | cons x xs => \case p x \as q \return length (if q (cons x (filter'' p xs)) (filter'' p xs)) <= suc (length xs) \with {
+    | false => <=-helper (filter''-lem p xs)
+    | true  => filter''-lem p xs
+  }
+
+-------------------------------------------------
+-- Matching on idp in \case
+-------------------------------------------------
+
+\func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+  => coe (\lam i => B (p @ i)) b right
+
+\func baz {A : \Type} (B : Bool -> \Type) (p : A -> Bool) (a : A) (pt : B true) (pf : B false) : B (p a) =>
+  -- Not only the return type can be specified explicitly, but also
+  -- the type of expressions we do matching on.
+  -- And we can use variables bounded in \as.
+  \case p a \as b, idp : b = p a \with {
+    | true, q => transport B q pt -- here q : true = p a
+    | false, q => transport B q pf -- here q : false = p a
+  }
+
+\func baz' {A : \Type} (B : Bool -> \Type) (p : A -> Bool) (a : A) (pt : B true) (pf : B false) : B (p a) =>
+  helper B p a pt pf
+         (p a) idp
+  \where
+    \func helper {A : \Type} (B : Bool -> \Type) (p : A -> Bool) (a : A) (pt : B true) (pf : B false)
+                 (b : Bool) (q : b = p a) : B (p a) \elim b
+      | true => transport B q pt -- here q : true = p a
+      | false => transport B q pf -- here q : false = p a
+
+-- EXERCISE
+-- 3. Prove that, for every function f : Bool -> Bool and every x : Bool, it is true that f (f (f x)) = f x.
+
+\func Bool-lem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x \elim x
+  | false => \case f false \as u, idp : f false = u \return f (f u) = u \with {
+    | false, p => transport (\lam w => f w = false) (inv p) p
+    | true , p => \case f true \as v, idp : f true = v \return f v = true \with {
+      | false, _ => p
+      | true , q => q
+    }
+  }
+  | true  => \case f true \as u, idp : f true = u \return f (f u) = u \with {
+    | false, p => \case f false \as v, idp : f false = v \return f v = false \with {
+      | false, q => q
+      | true , _ => p
+    }
+    | true , p => transport (\lam w => f w = true) (inv p) p
+  }
+
+-------------------------------------------------
+-- One more example of \case
+-------------------------------------------------
+
+-- symmetry
+\func inv {A : \Type} {a a' : A} (p : a = a') : a' = a
+  => transport (\lam x => x = a) p idp
+
+\func bar {A : \Type} (p q : A -> Bool) (a : A) (s : q a = not (p a))
+  : not (q a) = p a =>
+  \case p a \as x, q a \as y, s : y = not x \return not y = x \with {
+    | true, true, s' => inv s'
+    | true, false, _ => idp
+    | false, true, _ => idp
+    | false, false, s' => inv s'
+  }
+
+-- helper version
+\func bar' {A : \Type} (p q : A -> Bool) (a : A) (s : q a = not (p a))
+  : not (q a) = p a => helper (p a) (q a) s
+  \where
+    \func helper (x y : Bool) (s : y = not x) : not y = x \elim x, y
+      | true, true => inv s
+      | true, false => idp
+      | false, true => idp
+      | false, false => inv s
+
+-------------------------------------------------
+-- Views
+-------------------------------------------------
+
+\func \infixl 6 + (x y : Nat) : Nat \elim y
+  | 0 => x
+  | suc y => suc (x + y)
+
+\func \infixl 7 * (x y : Nat) : Nat \elim y
+  | 0 => 0
+  | suc y => x * y + x
+
+\data Parity (n : Nat)
+  | even (k : Nat) (p : n = 2 * k)
+  | odd (k : Nat) (p : n = 2 * k + 1)
+
+-- congruence
+\func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+  => transport (\lam x => f a = f x) p idp
+
+\func parity (n : Nat) : Parity n
+  | 0 => even 0 idp
+  | suc n => \case parity n \with {
+    | even k p => odd k (pmap suc p)
+    | odd k p => even (suc k) (pmap suc p) }
+
+\func div2 (n : Nat) : Nat => \case parity n \with {
+  | even k _ => k
+  | odd k _ => k
+}
+
+-- EXERCISE
+-- 4. Define the view, which represents a natural number as a pair of the quotient and the remainder of
+-- division by a positive 'm'. Implement the division function.
+
+\data ModView (m n : Nat)
+  | quot-rem (q r : Nat) (t : T (r < m)) (p : n = q * m + r)
+
+-- ModView (m + 1) (n + 1)
+-- quot-rem q r (t : r < m + 1) (p : n + 1 = q * (m + 1) + r)
+-- quot-rem q r (t : r < m + 1) (p : n + 1 = q * m + q + r)
+
+\func zero-left-mult {m : Nat} : 0 = 0 * m \elim m
+  | 0     => idp
+  | suc m => zero-left-mult
+
+\data \fixr 2 Either (A B : \Type)
+  | inl A
+  | inr B
+
+\func natlezero {m : Nat} (p : T (m < 0)) : Empty
+  | {0}, ()
+
+\func leToLeq {m n : Nat} (p : T (m < suc n)) : Either (T (m < n)) (m = n) \elim m, n
+  | 0    , 0     => inr idp
+  | 0    , suc n => inl unit
+  | suc m, 0     => absurd (natlezero p)
+  | suc m, suc n => \case leToLeq p \with {
+    | inl u => inl u
+    | inr v => inr (pmap suc v)
+  }
+
+\func trans {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a''
+  => transport (\lam x => a = x) q p
+
+\func plus-anything-right {x y q : Nat} (p : x = y) : x + q = y + q \elim q
+  | 0     => p
+  | suc q => pmap suc (plus-anything-right p)
+
+\func zero-neutral-left (x : Nat) : zero + x = x
+  | zero  => idp
+  | suc x => pmap suc (zero-neutral-left x)
+
+\func +-assoc (x y z : Nat) : x + y + z = x + (y + z) \elim z
+  | zero  => idp
+  | suc z => pmap suc (+-assoc x y z)
+
+\func suc-+-comm (x y : Nat) : suc (x + y) = suc x + y \elim y
+  | 0     => idp
+  | suc y => pmap suc (suc-+-comm x y)
+
+\func +-comm (x y : Nat) : x + y = y + x \elim y
+  | 0     => inv (zero-neutral-left x)
+  | suc y => transport (\lam k => suc (x + y) = k) (suc-+-comm y x) (pmap suc (+-comm x y))
+
+\func mult-suc {q m : Nat} : q * m + m = suc q * m \elim m
+  | 0     => idp
+  | suc m =>
+    pmap suc (
+      transport (\lam k => k = suc q * m + q) (inv (+-assoc (q * m) q m)) (
+        transport (\lam k => q * m + k = suc q * m + q) (+-comm m q) (
+          transport (\lam k => k = suc q * m + q) (+-assoc (q * m) m q) (
+            plus-anything-right mult-suc
+          )
+        )
+      )
+    )
+
+\func mod-view-helper {q m : Nat} : q * m + q + m = suc q * m + q
+  => transport (\lam k => k = suc q * m + q) (inv (+-assoc (q * m) q m)) (
+       transport (\lam k => q * m + k = suc q * m + q) (+-comm m q) (
+         transport (\lam k => k = suc q * m + q) (+-assoc (q * m) m q) (
+           plus-anything-right mult-suc
+         )
+       )
+     )
+
+\func mod-view (m n : Nat) (t : T (0 < m)) : ModView m n \elim m, n
+  | 0    , _     => absurd t
+  | suc m, 0     => quot-rem 0 0 unit zero-left-mult
+  | suc m, suc n =>
+    \let inh : ModView (suc m) n => mod-view (suc m) n unit
+     \in \case \elim inh \with {
+      | quot-rem q r t p => \case leToLeq t \with {
+        | inl u => quot-rem q (suc r) u (pmap suc p)
+        | inr v =>
+          \let y => transport (\lam w => n = q * m + q + w) v p
+           \in quot-rem (suc q) 0 unit (pmap suc (trans y mod-view-helper))
+      }
+    }
+
+\func div (n m : Nat) (w : T (0 < m)) : Nat => \case mod-view m n w \with {
+  | quot-rem q _ _ _ => q
+}
+
+-------------------------------------------------
+-- Decidable predicates
+-------------------------------------------------
+
+\data Decide (A : \Type)
+  | yes A
+  | no (A -> Empty)
+
+\func DecPred {A : \Type} (P : A -> \Type) => \Pi (a : A) -> Decide (P a)
+
+\func suc/=0 {n : Nat} (p : suc n = 0) : Empty => transport (\lam n => \case n \with { | 0 => Empty | suc _ => Unit }) p unit
+
+-- the predicate \lam n => n = 0 is decidable
+\func decide0 : DecPred (\lam (n : Nat) => n = 0) => \lam n =>
+    \case n \as x \return Decide (x = 0) \with {
+      | 0 => yes idp
+      | suc _ => no suc/=0
+    }
+
+-- EXERCISE
+-- 5. Prove that the predicate 'isEven' is decidable.
+
+\func isEven (n : Nat) => \Sigma (k : Nat) (n = 2 * k)
+
+\func pred (x : Nat) : Nat
+  | 0     => 0
+  | suc x => x
+
+\func suc-inj {x y : Nat} (p : suc x = suc y) : x = y
+  => pmap pred p
+
+\func one-is-not-a-double {k : Nat} (p : 1 = 2 * k) : Empty \elim k
+  | 0     => suc/=0 p
+  | suc k => suc/=0 (suc-inj (inv p))
+
+\func double-suc-or-pred {n m : Nat} (p : suc (suc n) = 2 * m) : n = 2 * pred m \elim n, m
+  | 0    , 0     => idp
+  | 0    , suc _ => suc-inj (suc-inj p)
+  | suc n, 0     => absurd (suc/=0 p)
+  | suc n, suc m => suc-inj (suc-inj p)
+
+\func evendec {n : Nat} : Decide (isEven n) \elim n
+  | 0           => yes (0, idp)
+  | 1           => no (\lam w => one-is-not-a-double (w.2))
+  | suc (suc n) => \case evendec {n} \with {
+    | yes (k, p) => yes (suc k, pmap (\lam w => suc (suc w)) p)
+    | no  q      => no (\lam w => \let (u, v) => w \in q (pred u, double-suc-or-pred v))
+  }
+
+\func isEven-dec : DecPred isEven => \lam n => evendec
+
+-------------------------------------------------
+-- Decidable equality
+-------------------------------------------------
+
+\func DecEq (A : \Type) => \Pi (a a' : A) -> Decide (a = a')
+
+\class Eq (A : \Type) {
+  | decideEq : DecEq A
+  -- Functions declared inside a class have instance of
+  -- the class as their first implicit parameter.
+  \func \infix 4 == (a a' : A) : Bool => \case decideEq a a' \with {
+    | yes _ => true
+    | no _ => false
+  }
+} \where {
+  -- Function == is equivalent to =='.
+  \func \infix 4 ==' {e : Eq} (a a' : e.A) : Bool => \case e.decideEq a a' \with {
+    | yes _ => true
+    | no _ => false
+  }
+}
+
+\instance NatEq : Eq Nat
+  | decideEq => decideEq
+  \where
+    \func decideEq (x y : Nat) : Decide (x = y)
+      | 0, 0 => yes idp
+      | 0, suc y => no (\lam p => suc/=0 (inv p))
+      | suc x, 0 => no suc/=0
+      | suc x, suc y => \case decideEq x y \with {
+        | yes p => yes (pmap suc p)
+        | no c => no (\lam p => c (pmap pred p))
+      }
+
+\func test1 : (0 Eq.== 0) = true => idp
+\func test2 : (0 Eq.== 1) = false => idp
+
+-- EXERCISE
+-- 6. Prove that if equality of elements of a type 'A' is decidable, then eqiality of elements if 'List A' is also decidable.
+
+-- \func list-comp-eq {A : \Type} (dec : Eq A) {x y : A} {xs ys : List A} (p : x = y) (q : xs = ys) : cons x xs = cons y ys
+
+
+\func nil-is-not-cons {A : \Type} {t : A} {xs : List A} (p : cons t xs = nil) : Empty
+  => transport (\lam ws => \case ws \with { | nil => Empty | cons w ws => Unit}) p unit
+
+\func listeq-inst-gen {A : \Type} (dech : Eq A) (xs ys : List A) : Decide (xs = ys) \elim xs, ys
+  | nil      , nil       => yes idp
+  | nil      , cons _ _  => no (\lam p => nil-is-not-cons (inv p))
+  | cons _ _ , nil       => no nil-is-not-cons
+  | cons s ss, cons t ts =>
+    \let | inhead => dech.decideEq s t
+         | intail => listeq-inst-gen dech ss ts
+     \in \case inhead, intail \with {
+      | yes p, yes q => yes (transport (\lam w => cons w.1 w.2 = cons t ts) (inv (path (\lam i => (p @ i, q @ i)))) idp)
+      | yes _, no  q => no (\lam p => q (listeq-comp p).2)
+      | no  p, yes _ => no (\lam q => p (listeq-comp q).1)
+      | no  p, no  _ => no (\lam q => p (listeq-comp q).1)
+     }
+
+\func head {A : \Type} (s : A) (xs : List A) : A \elim xs
+  | nil       => s
+  | cons x xs => x
+
+\func tail {A : \Type} (xs : List A) : List A \elim xs
+  | nil       => nil
+  | cons _ xs => xs
+
+\func listeq-comp {A : \Type} {s t : A} {xs ys : List A} (p : cons s xs = cons t ys) : \Sigma (s = t) (xs = ys) \elim xs, ys
+  | nil      , nil       => (path (\lam i => head s (p @ i)), idp)
+  | nil      , cons y _  => (pmap (head y) p, path (\lam i => tail (p @ i)))
+  | cons x _ , nil       => (pmap (head x) p, path (\lam i => tail (p @ i)))
+  | cons x xs, cons y ys => (pmap (head x) p, pmap tail p)
+
+\instance ListEq {A : \Type} (dec : Eq A) : Eq (List A)
+  | decideEq => listeq-inst-gen dec
+
+-- EXERCISE
+-- 7. Prove that if equality of elements of a type 'A' is decidable, then every list of elements of 'A' is either empty,
+-- consists of repetitions of one element or there exist two different elements in 'A'.
+
+\func repeat {A : \Type} (n : Nat) (a : A) : List A \elim n
+  | 0 => nil
+  | suc n => cons a (repeat n a)
+
+\data Result (A : \Type) (xs : List A)
+  | empty (xs = nil)
+  | repeated (n : Nat) (a : A) (p : xs = repeat n a)
+  | A-is-not-trivial (a a' : A) (p : a = a' -> Empty)
+
+\func lemma {A : \Type} (xs : List A) {dec : DecEq A} : Result A xs \elim xs
+  | nil       => empty idp
+  | cons x xs => \case lemma xs {dec} \with {
+    | A-is-not-trivial a a' p => A-is-not-trivial a a' p
+    | empty p => repeated 1 x (pmap (cons x) p)
+    | repeated n a p => \case dec x a \with {
+      | yes q => repeated (suc n) x (pmap (cons x) (transport (\lam w => xs = repeat n w) (inv q) p))
+      | no  q => A-is-not-trivial x a q
+    }
+  }
+
+-------------------------------------------------
+-- Decidable predicates and functions
+-------------------------------------------------
+
+\func T (b : Bool) : \Type
+  | true => Unit
+  | false => Empty
+
+\func FromBoolToDec {A : \Type} (p : A -> Bool) : \Sigma (P : A -> \Type) (DecPred P)
+  => (\lam a => T (p a), \lam a => \case p a \as b \return Decide (T b) \with {
+    | true => yes unit
+    | false => no (\lam x => x)
+  })
+
+\func FromDecToBool {A : \Type} (P : \Sigma (P : A -> \Type) (DecPred P)) : A -> Bool
+  => \lam a => \case P.2 a \with {
+    | yes _ => true
+    | no _ => false
+  }
+
+-- EXERCISE
+-- 8. Prove that the functions 'FromBoolToDec' and 'FromDecToBool' are inverse to each other.
+
+\func funExt {A : \Type} (B : A -> \Type) {f g : \Pi (a : A) -> B a}
+             (p : \Pi (a : A) -> f a = g a) : f = g
+  => path (\lam i => \lam a => p a @ i)
+
+-- TODO
+\func bdb {A : \Type} (p : A -> Bool) : FromDecToBool (FromBoolToDec p) = p
+  => \case FromBoolToDec p \as u, idp : u = FromBoolToDec p \return FromDecToBool u = p \with {
+    | (q, w), z => \case FromDecToBool (q, w) \as v, idp : v = FromDecToBool (q, w) \return v = p \with {
+      | v, e => funExt (\lam _ => Bool) (\lam a =>
+        \case w a \with {
+          | yes b => {?}
+          | no  b => {?}
+        }
+      )
+    }
+  }
+
+-- We cannot prove that 'FromBoolToDec (FromDecToBool P) = P', but we can prove a weaker statement:
+-- these predicates are logically equivalent.
+
+-- Equivalence of predicates
+\func \infix 4 <-> {A : \Type} (P Q : A -> \Type) => \Pi (x : A) -> \Sigma (P x -> Q x) (Q x -> P x)
+
+-- TODO
+\func dbd {A : \Type} (P : \Sigma (P : A -> \Type) (DecPred P)) : (FromBoolToDec (FromDecToBool P)).1 <-> P.1 \elim P
+  | (P, w) => \lam a => \case FromDecToBool (P, w) a \as z, idp : z = FromDecToBool (P, w) a \return \Sigma (T z -> P a) (P a -> T z) \with {
+    | false, v =>
+      ( absurd
+      , {?}
+      )
+    | true , v =>
+      ( \lam _ =>
+          \let t => w a \in \case \elim t \with {
+            | yes j => j
+            | no  j => {?}
+          }
+      , \lam _ => unit
+      )
+  }
